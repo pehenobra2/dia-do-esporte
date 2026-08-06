@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
 <meta name="theme-color" content="#10201C" />
-<title>Fut do maanaim — Times</title>
+<title>Fut de Terça — Times</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -321,8 +321,8 @@
     font-size:52px;
     line-height:1;
   }
-  .score-team.a .tname{color:var(--text);}
-  .score-team.b .tname{color:var(--verde);}
+  .score-team.preto .tname{color:var(--text);}
+  .score-team.verde .tname{color:var(--verde);}
   .score-sep{font-family:var(--font-display); font-size:30px; color:var(--text-muted); padding-top:18px;}
 
   .match-actions{display:flex; gap:10px; margin-top:18px;}
@@ -737,17 +737,26 @@ function removeFromActiveMatch(playerId){
 }
 
 // Retorna o próximo confronto (para tela de Fila e tela de Partida)
+// texto do rótulo pra uma cor ('preto'|'verde'|null/outros -> "Time" genérico)
+function colorLabel(color){
+  return color==='preto' ? 'Time Preto' : (color==='verde' ? 'Time Verde' : 'Time');
+}
+
 function getMatchup(){
-  var teamA, teamB;
+  var teamA, teamB, colorA, colorB;
   if(state.champion){
     teamA = state.champion;
+    colorA = state.champion.color || 'preto';
     teamB = state.teams.length ? state.teams[0] : null;
+    colorB = colorA === 'preto' ? 'verde' : 'preto';
   } else {
     teamA = state.teams.length ? state.teams[0] : null;
     teamB = state.teams.length > 1 ? state.teams[1] : null;
+    colorA = 'preto';
+    colorB = 'verde';
   }
   var ready = !!(teamA && teamA.players.length===state.teamSize && teamB && teamB.players.length===state.teamSize);
-  return { teamA: teamA, teamB: teamB, ready: ready, hasChampion: !!state.champion };
+  return { teamA: teamA, teamB: teamB, colorA: colorA, colorB: colorB, ready: ready, hasChampion: !!state.champion };
 }
 
 function startMatch(durationMinutes){
@@ -762,12 +771,13 @@ function startMatch(durationMinutes){
     teamA = state.teams.shift();
     teamB = state.teams.shift();
   }
+  var colorA = m.colorA, colorB = m.colorB; // captura antes de zerar o campeão
   state.initialSplitDone = true;
   state.champion = null; // liberado durante a partida; será redefinido ao final
 
   state.currentMatch = {
-    teamA: { number: teamA.number, players: teamA.players.slice() },
-    teamB: { number: teamB.number, players: teamB.players.slice() },
+    teamA: { number: teamA.number, players: teamA.players.slice(), color: colorA },
+    teamB: { number: teamB.number, players: teamB.players.slice(), color: colorB },
     durationSec: Math.round(durationMinutes*60),
     remainingSec: Math.round(durationMinutes*60),
     running: true,
@@ -836,7 +846,7 @@ function endMatch(result){ // 'A' | 'B' | 'draw-stay-A' | 'draw-stay-B' | 'draw-
     var championPlayers = keepSpotIds.length
       ? continuingTeam.players.filter(function(id){ return keepSpotIds.indexOf(id) === -1; })
       : continuingTeam.players.slice();
-    state.champion = { number: continuingTeam.number, players: championPlayers };
+    state.champion = { number: continuingTeam.number, players: championPlayers, color: continuingTeam.color };
   } else {
     state.champion = null;
   }
@@ -854,6 +864,7 @@ function endMatch(result){ // 'A' | 'B' | 'draw-stay-A' | 'draw-stay-B' | 'draw-
 
   state.matchHistory.push({
     teamANumber:m.teamA.number, teamBNumber:m.teamB.number,
+    teamAColor:m.teamA.color, teamBColor:m.teamB.color,
     teamANames: m.teamA.players.map(playerName),
     teamBNames: m.teamB.players.map(playerName),
     scoreA:m.scoreA, scoreB:m.scoreB, result:result,
@@ -915,17 +926,16 @@ function esc(s){
 
 function renderTeamCard(team, opts){
   opts = opts || {};
-  var cls = 'team-card' + (opts.slot==='A'?' preto':'') + (opts.slot==='B'?' verde':'');
-  var label = opts.slot==='A' ? 'Time Preto' : (opts.slot==='B' ? 'Time Verde' : 'Time');
+  var color = opts.color; // 'preto' | 'verde' | undefined (genérico)
+  var cls = 'team-card' + (color==='preto'?' preto':'') + (color==='verde'?' verde':'');
+  var label = colorLabel(color);
+  var badgeColorClass = color==='verde' ? 'verde' : 'preto';
   var badge = opts.status==='playing' ? '<span class="badge red">Em quadra</span>' :
-    (opts.status==='champion' ? '<span class="badge preto">Time da vez</span>' :
-    (opts.status==='challenger' ? '<span class="badge verde">Próximo desafio</span>' : ''));
+    (opts.status==='champion' ? '<span class="badge '+badgeColorClass+'">Time da vez</span>' :
+    (opts.status==='challenger' ? '<span class="badge '+badgeColorClass+'">Próximo desafio</span>' : ''));
   var players = team ? team.players : [];
   var chips = players.map(function(id){
-    var removable = opts.removable!==false;
-    var removeAttr = opts.activeMatchRemoval ? 'data-remove-active-player' : 'data-remove-player';
-    return '<span class="chip" data-player-chip="'+id+'">'+esc(playerName(id))+
-      (removable? '<span class="x" '+removeAttr+'="'+id+'">✕</span>':'')+'</span>';
+    return '<span class="chip" data-player-chip="'+id+'">'+esc(playerName(id))+'</span>';
   }).join('');
   var slotsMissing = state.teamSize - players.length;
   for(var i=0;i<slotsMissing;i++){
@@ -987,8 +997,7 @@ function bindTeamSizeSetupEvents(){
 function renderGoalkeeperSection(){
   var ids = state.goalkeeperOrder.filter(function(id){ return !!state.players[id]; });
   var chips = ids.map(function(id){
-    return '<span class="chip" data-player-chip="'+id+'">🧤 '+esc(playerName(id))+
-      '<span class="x" data-remove-goalkeeper="'+id+'">✕</span></span>';
+    return '<span class="chip" data-player-chip="'+id+'">🧤 '+esc(playerName(id))+'</span>';
   }).join('');
   return '<div class="setup-card goalkeeper-card">'+
     '<h2 class="section-title" style="margin-top:0">Goleiros fixos</h2>'+
@@ -997,7 +1006,7 @@ function renderGoalkeeperSection(){
       '<button id="btn-add-goalkeeper">Adicionar</button>'+
       '</div>'+
     (chips ? '<div class="player-chips" style="margin-top:10px">'+chips+'</div>' : '')+
-    '<div class="waiting-note">Não entram na fila de times, mas aparecem pra marcar gol/assistência e nas estatísticas.</div>'+
+    '<div class="waiting-note">Não entram na fila de times, mas aparecem pra marcar gol/assistência e nas estatísticas. Toque no nome pra editar.</div>'+
     '</div>';
 }
 
@@ -1013,15 +1022,6 @@ function bindGoalkeeperEvents(){
   }
   if(addBtn) addBtn.addEventListener('click', doAdd);
   if(input) input.addEventListener('keydown', function(e){ if(e.key==='Enter') doAdd(); });
-
-  document.querySelectorAll('[data-remove-goalkeeper]').forEach(function(el){
-    el.addEventListener('click', function(e){
-      e.stopPropagation();
-      var id = el.getAttribute('data-remove-goalkeeper');
-      removeGoalkeeper(id);
-      renderAll();
-    });
-  });
 }
 
 function renderFila(){
@@ -1052,14 +1052,15 @@ function renderFila(){
   if(state.currentMatch){
     var cm = state.currentMatch;
     html += '<h2 class="section-title">Em quadra agora</h2>';
-    html += renderTeamCard(cm.teamA, { slot:'A', status:'playing', removable:true, activeMatchRemoval:true });
-    html += renderTeamCard(cm.teamB, { slot:'B', status:'playing', removable:true, activeMatchRemoval:true });
-    html += '<div class="waiting-note">Machucou ou precisa sair? Toque no ✕ do nome — o primeiro da fila entra no lugar. Acompanhe o placar na aba Partida.</div>';
+    html += renderTeamCard(cm.teamA, { color: cm.teamA.color, status:'playing' });
+    html += renderTeamCard(cm.teamB, { color: cm.teamB.color, status:'playing' });
+    html += '<div class="waiting-note">Machucou ou precisa sair? Toque no nome — o primeiro da fila entra no lugar. Acompanhe o placar na aba Partida.</div>';
 
     var nextChallenger = state.teams.length ? state.teams[0] : null;
     html += '<h2 class="section-title">Próximo desafiante</h2>';
     if(nextChallenger){
-      html += renderTeamCard(nextChallenger, { slot:'B', status:'challenger', removable:true });
+      // a cor de quem desafia ainda não dá pra saber — depende de quem vencer a partida atual
+      html += renderTeamCard(nextChallenger, { status:'challenger-pending' });
       if(nextChallenger.players.length < state.teamSize){
         var missingNext = state.teamSize - nextChallenger.players.length;
         html += '<div class="waiting-note">Faltam '+missingNext+' jogador'+(missingNext===1?'':'es')+' pra fechar esse time.</div>';
@@ -1074,14 +1075,14 @@ function renderFila(){
     if(queueRest.length){
       html += '<h2 class="section-title">Fila de espera</h2>';
       queueRest.forEach(function(t){
-        html += renderTeamCard(t, {removable:true});
+        html += renderTeamCard(t, {});
       });
     }
   } else {
     var m = getMatchup();
     html += '<h2 class="section-title">Próxima partida <span class="badge teal" style="margin-left:6px; text-transform:none; letter-spacing:0">times de '+state.teamSize+'</span></h2>';
-    html += renderTeamCard(m.teamA, { slot:'A', status: m.hasChampion ? 'champion' : null, removable: !m.hasChampion });
-    html += renderTeamCard(m.teamB, { slot:'B', status:'challenger', removable:true });
+    html += renderTeamCard(m.teamA, { color: m.colorA, status: m.hasChampion ? 'champion' : null });
+    html += renderTeamCard(m.teamB, { color: m.colorB, status:'challenger' });
 
     if(!m.ready){
       var have = (m.teamA?m.teamA.players.length:0) + (m.teamB?m.teamB.players.length:0);
@@ -1095,7 +1096,7 @@ function renderFila(){
     if(queueTeams.length){
       html += '<h2 class="section-title">Fila de espera</h2>';
       queueTeams.forEach(function(t){
-        html += renderTeamCard(t, {removable:true});
+        html += renderTeamCard(t, {});
       });
     }
   }
@@ -1120,26 +1121,10 @@ function bindFilaEvents(){
   if(addBtn) addBtn.addEventListener('click', doAdd);
   if(input) input.addEventListener('keydown', function(e){ if(e.key==='Enter') doAdd(); });
 
-  document.querySelectorAll('[data-remove-player]').forEach(function(el){
-    el.addEventListener('click', function(e){
-      e.stopPropagation();
-      var id = el.getAttribute('data-remove-player');
-      removePlayerFromQueue(id);
-      renderAll();
-    });
-  });
-  document.querySelectorAll('[data-remove-active-player]').forEach(function(el){
-    el.addEventListener('click', function(e){
-      e.stopPropagation();
-      var id = el.getAttribute('data-remove-active-player');
-      handlePlayerRemovalDuringMatch(id);
-    });
-  });
   document.querySelectorAll('[data-player-chip]').forEach(function(el){
     el.addEventListener('click', function(){
       var id = el.getAttribute('data-player-chip');
-      var novo = prompt('Renomear jogador:', playerName(id));
-      if(novo!==null && novo.trim()){ renamePlayer(id, novo); renderAll(); }
+      openPlayerActionSheet(id);
     });
   });
   var goBtn = document.getElementById('btn-go-start-match');
@@ -1176,9 +1161,9 @@ function renderPartida(){
       html += '<h2 class="section-title">Próxima partida</h2>';
       html += '<div class="setup-card">';
       html += '<div class="vs-row">';
-      html += '<div class="vs-team"><div class="tname" style="color:var(--text)">Time Preto</div><div class="tplayers">'+teamNames(m.teamA).map(esc).join('<br>')+'</div></div>';
+      html += '<div class="vs-team"><div class="tname" style="color:'+(m.colorA==='verde'?'var(--verde)':'var(--text)')+'">'+colorLabel(m.colorA)+'</div><div class="tplayers">'+teamNames(m.teamA).map(esc).join('<br>')+'</div></div>';
       html += '<div class="vs-x">×</div>';
-      html += '<div class="vs-team"><div class="tname" style="color:var(--verde)">Time Verde</div><div class="tplayers">'+teamNames(m.teamB).map(esc).join('<br>')+'</div></div>';
+      html += '<div class="vs-team"><div class="tname" style="color:'+(m.colorB==='verde'?'var(--verde)':'var(--text)')+'">'+colorLabel(m.colorB)+'</div><div class="tplayers">'+teamNames(m.teamB).map(esc).join('<br>')+'</div></div>';
       html += '</div>';
       html += '<div class="duration-row">'+
         '<button id="dur-minus">–</button>'+
@@ -1200,9 +1185,9 @@ function renderScoreboard(){
   var html = '<div class="scoreboard">';
   html += '<div class="'+timerCls+'" id="timer-text">'+fmtTime(m.remainingSec)+'</div>';
   html += '<div class="score-row">'+
-    '<div class="score-team a"><div class="tname">Time Preto</div><div class="tscore" id="score-a">'+m.scoreA+'</div></div>'+
+    '<div class="score-team '+m.teamA.color+'"><div class="tname">'+colorLabel(m.teamA.color)+'</div><div class="tscore" id="score-a">'+m.scoreA+'</div></div>'+
     '<div class="score-sep">×</div>'+
-    '<div class="score-team b"><div class="tname">Time Verde</div><div class="tscore" id="score-b">'+m.scoreB+'</div></div>'+
+    '<div class="score-team '+m.teamB.color+'"><div class="tname">'+colorLabel(m.teamB.color)+'</div><div class="tscore" id="score-b">'+m.scoreB+'</div></div>'+
     '</div>';
 
   if(m.remainingSec>0){
@@ -1235,8 +1220,8 @@ function renderScoreboard(){
 }
 
 function renderDrawChoice(m){
-  return '<button class="result-btn" data-draw-stay="A">Time Preto fica</button>'+
-    '<button class="result-btn" data-draw-stay="B">Time Verde fica</button>'+
+  return '<button class="result-btn" data-draw-stay="A">'+colorLabel(m.teamA.color)+' fica</button>'+
+    '<button class="result-btn" data-draw-stay="B">'+colorLabel(m.teamB.color)+' fica</button>'+
     '<button class="result-btn" style="color:var(--text-muted); font-weight:500;" data-draw-stay="none">Nenhum — os dois voltam pra fila</button>';
 }
 
@@ -1384,12 +1369,12 @@ function renderGoalModalStep(){
   if(!goalDraft.team){
     html += modalHead('Quem fez o gol?');
     html += '<div class="pick-grid">'+
-      '<button class="pick-btn team-a" data-pick-team="A">Time Preto</button>'+
-      '<button class="pick-btn team-b" data-pick-team="B">Time Verde</button>'+
+      '<button class="pick-btn '+(m.teamA.color==='verde'?'team-b':'team-a')+'" data-pick-team="A">'+colorLabel(m.teamA.color)+'</button>'+
+      '<button class="pick-btn '+(m.teamB.color==='verde'?'team-b':'team-a')+'" data-pick-team="B">'+colorLabel(m.teamB.color)+'</button>'+
       '</div>';
   } else if(!goalDraft.scorerId){
     var team = goalDraft.team==='A'?m.teamA:m.teamB;
-    html += modalHead('Quem marcou? (Time '+(goalDraft.team==='A'?'Preto':'Verde')+')');
+    html += modalHead('Quem marcou? ('+colorLabel(team.color)+')');
     html += '<div class="pick-grid">';
     team.players.forEach(function(id){
       html += '<button class="pick-btn" data-pick-scorer="'+id+'">'+esc(playerName(id))+'</button>';
@@ -1487,10 +1472,10 @@ function handlePlayerRemovalDuringMatch(playerId){
 }
 
 function showSubstitutionPrompt(subId, removedName, teamKey){
-  var teamLabel = teamKey==='teamA' ? 'Preto' : 'Verde';
+  var teamColor = state.currentMatch ? state.currentMatch[teamKey].color : null;
   var sheet = document.getElementById('modal-sheet');
   sheet.innerHTML = modalHead('Substituição')+
-    '<div class="modal-confirm-text">'+esc(playerName(subId))+' entrou no Time '+teamLabel+' no lugar de '+esc(removedName)+'. Ele fica nesse time dali pra frente, ou mantém a posição dele na fila (volta pra frente depois dessa partida)?</div>'+
+    '<div class="modal-confirm-text">'+esc(playerName(subId))+' entrou no '+colorLabel(teamColor)+' no lugar de '+esc(removedName)+'. Ele fica nesse time dali pra frente, ou mantém a posição dele na fila (volta pra frente depois dessa partida)?</div>'+
     '<button class="btn btn-primary" id="sub-stays-team">Fica nesse time</button>'+
     '<div class="cta-row"><button class="btn btn-secondary" id="sub-keeps-spot">Mantém a posição na fila</button></div>';
   showModal();
@@ -1507,6 +1492,151 @@ function showSubstitutionPrompt(subId, removedName, teamKey){
     }
     hideModal();
   });
+}
+
+/* ==========================================================================
+   SANDBOX DE EDIÇÃO — toque no nome de qualquer jogador (fila, campeão ou em
+   quadra) pra trocar de lugar com outro, renomear, ou remover. Um jeito
+   genérico de arrumar a ordem manualmente, sem precisar de lógica específica
+   pra cada situação.
+   ========================================================================== */
+
+// acha em qual array (e em que posição) um jogador está agora — fila, campeão ou partida ativa
+function locatePlayer(playerId){
+  for(var i=0;i<state.teams.length;i++){
+    var idx = state.teams[i].players.indexOf(playerId);
+    if(idx>-1) return { arr: state.teams[i].players, idx: idx };
+  }
+  if(state.champion){
+    var cidx = state.champion.players.indexOf(playerId);
+    if(cidx>-1) return { arr: state.champion.players, idx: cidx };
+  }
+  if(state.currentMatch){
+    var aidx = state.currentMatch.teamA.players.indexOf(playerId);
+    if(aidx>-1) return { arr: state.currentMatch.teamA.players, idx: aidx };
+    var bidx = state.currentMatch.teamB.players.indexOf(playerId);
+    if(bidx>-1) return { arr: state.currentMatch.teamB.players, idx: bidx };
+  }
+  return null;
+}
+
+// troca dois jogadores de posição, sejam eles de times diferentes, da fila, do campeão ou em quadra
+function swapPlayers(idA, idB){
+  if(idA===idB) return false;
+  var locA = locatePlayer(idA);
+  var locB = locatePlayer(idB);
+  if(!locA || !locB) return false;
+  locA.arr[locA.idx] = idB;
+  locB.arr[locB.idx] = idA;
+  saveState();
+  return true;
+}
+
+// todo mundo que pode ser alvo de troca (fila + campeão + em quadra), na ordem em que aparecem na tela
+function swapCandidateIds(excludeId){
+  var ids = [];
+  if(state.currentMatch){
+    ids = ids.concat(state.currentMatch.teamA.players, state.currentMatch.teamB.players);
+  }
+  if(state.champion) ids = ids.concat(state.champion.players);
+  state.teams.forEach(function(t){ ids = ids.concat(t.players); });
+  var seen = {};
+  return ids.filter(function(id){
+    if(id===excludeId || seen[id]) return false;
+    seen[id] = true;
+    return true;
+  });
+}
+
+function openPlayerActionSheet(playerId){
+  var p = state.players[playerId];
+  if(!p) return;
+  var sheet = document.getElementById('modal-sheet');
+  var html = modalHead(playerName(playerId));
+  html += '<div class="pick-grid">';
+  if(!p.fixedGoalkeeper){
+    html += '<button class="pick-btn" id="action-swap">🔀 Trocar de lugar</button>';
+  }
+  html += '<button class="pick-btn" id="action-rename">✏️ Renomear</button>';
+  html += '<button class="pick-btn" style="color:var(--red); border-color:rgba(226,84,61,0.35)" id="action-remove">✕ Remover</button>';
+  html += '</div>';
+  sheet.innerHTML = html;
+  showModal();
+  var closeBtn = document.getElementById('modal-close-btn');
+  if(closeBtn) closeBtn.addEventListener('click', hideModal);
+  var swapBtn = document.getElementById('action-swap');
+  if(swapBtn) swapBtn.addEventListener('click', function(){ openSwapTargetPicker(playerId); });
+  document.getElementById('action-rename').addEventListener('click', function(){ openRenameEditor(playerId); });
+  document.getElementById('action-remove').addEventListener('click', function(){
+    hideModal();
+    performRemovePlayer(playerId);
+  });
+}
+
+function openSwapTargetPicker(playerId){
+  var sheet = document.getElementById('modal-sheet');
+  var candidates = swapCandidateIds(playerId);
+  var html = modalHead('Trocar '+esc(playerName(playerId))+' com quem?');
+  if(!candidates.length){
+    html += '<div class="modal-confirm-text">Não tem outro jogador em quadra ou na fila pra trocar agora.</div>';
+  } else {
+    html += '<div class="pick-grid">';
+    candidates.forEach(function(id){
+      html += '<button class="pick-btn" data-swap-target="'+id+'">'+esc(playerName(id))+'</button>';
+    });
+    html += '</div>';
+  }
+  sheet.innerHTML = html;
+  var closeBtn = document.getElementById('modal-close-btn');
+  if(closeBtn) closeBtn.addEventListener('click', hideModal);
+  document.querySelectorAll('[data-swap-target]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var targetId = btn.getAttribute('data-swap-target');
+      swapPlayers(playerId, targetId);
+      hideModal();
+      renderAll();
+    });
+  });
+}
+
+function openRenameEditor(playerId){
+  var sheet = document.getElementById('modal-sheet');
+  sheet.innerHTML = modalHead('Renomear')+
+    '<div class="add-row"><input type="text" id="rename-input" autocomplete="off" /></div>'+
+    '<button class="btn btn-primary" id="confirm-rename" style="margin-top:12px">Salvar</button>';
+  var closeBtn = document.getElementById('modal-close-btn');
+  if(closeBtn) closeBtn.addEventListener('click', hideModal);
+  var input = document.getElementById('rename-input');
+  input.value = playerName(playerId);
+  input.focus();
+  input.select();
+  function doRename(){
+    var v = input.value;
+    if(v.trim()) renamePlayer(playerId, v);
+    hideModal();
+    renderAll();
+  }
+  document.getElementById('confirm-rename').addEventListener('click', doRename);
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter') doRename(); });
+}
+
+// remove um jogador de onde quer que ele esteja (fila, campeão, em quadra ou goleiro fixo)
+function performRemovePlayer(playerId){
+  var p = state.players[playerId];
+  if(p && p.fixedGoalkeeper){
+    removeGoalkeeper(playerId);
+    renderAll();
+    return;
+  }
+  if(state.currentMatch){
+    var m = state.currentMatch;
+    if(m.teamA.players.indexOf(playerId)>-1 || m.teamB.players.indexOf(playerId)>-1){
+      handlePlayerRemovalDuringMatch(playerId);
+      return;
+    }
+  }
+  removePlayerFromQueue(playerId);
+  renderAll();
 }
 
 /* Reset de sessão */
@@ -1568,15 +1698,18 @@ function renderStats(){
   if(state.matchHistory.length){
     html += '<h2 class="section-title">Histórico de partidas</h2>';
     state.matchHistory.slice().reverse().forEach(function(m){
+      var colA = m.teamAColor, colB = m.teamBColor;
+      var emojiA = colA==='verde' ? '🟢' : '⚫';
+      var emojiB = colB==='verde' ? '🟢' : '⚫';
       var goalsLine = m.goals.map(function(g){
-        return (g.team==='A'?'⚫':'🟢')+' '+esc(g.scorer)+(g.ownGoal?' (contra)':'')+(g.assist?' (assist. '+esc(g.assist)+')':'');
+        return (g.team==='A'?emojiA:emojiB)+' '+esc(g.scorer)+(g.ownGoal?' (contra)':'')+(g.assist?' (assist. '+esc(g.assist)+')':'');
       }).join(' · ');
       var resultLabel =
-        m.result==='draw-stay-A' ? 'Empate — Time Preto ficou' :
-        m.result==='draw-stay-B' ? 'Empate — Time Verde ficou' :
+        m.result==='draw-stay-A' ? 'Empate — '+colorLabel(colA)+' ficou' :
+        m.result==='draw-stay-B' ? 'Empate — '+colorLabel(colB)+' ficou' :
         (m.result==='draw-both-out' || m.result==='draw') ? 'Empate — os dois saíram' : '';
       html += '<div class="history-item">'+
-        '<div class="h-top"><span>Time Preto</span><span>'+m.scoreA+' × '+m.scoreB+'</span><span>Time Verde</span></div>'+
+        '<div class="h-top"><span>'+colorLabel(colA)+'</span><span>'+m.scoreA+' × '+m.scoreB+'</span><span>'+colorLabel(colB)+'</span></div>'+
         (resultLabel? '<div class="h-goals" style="color:var(--text)">'+resultLabel+'</div>' : '')+
         (goalsLine? '<div class="h-goals">'+goalsLine+'</div>' : '<div class="h-goals">Sem gols.</div>')+
         '</div>';

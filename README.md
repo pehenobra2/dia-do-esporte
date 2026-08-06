@@ -12,8 +12,8 @@ Esse número **trava assim que o primeiro jogador é adicionado** — pra mudar,
 
 - Os **2× o tamanho do time** primeiros a chegar formam os dois primeiros times — pra já sair um confronto equilibrado. Ex.: no futsal (4 por time) são os 8 primeiros; no fut7, os 14 primeiros.
 - Do jogador seguinte em diante, os times seguem só a ordem de chegada mesmo, sem numeração — são só "Time", um atrás do outro na fila.
-- **Os dois times que entram em quadra são sempre chamados de Time Preto e Time Verde**, pra bater com as cores reais dos coletes de vocês. É o mesmo par de cores em toda partida: o time que fica em quadra (vencedor ou quem "ficou" no empate) sempre veste preto; quem entra desafiando sempre veste verde.
-- Depois da primeira partida, o time vencedor **fica** (vira "Time da vez", sempre no papel de Preto) e o time perdedor volta pro **fim da fila**, jogador por jogador, completando o time que estiver incompleto antes de abrir um time novo.
+- **Os dois times que entram em quadra são sempre chamados de Time Preto e Time Verde**, pra bater com as cores reais dos coletes de vocês. A cor **gruda em quem tá jogando, não num "papel" fixo**: se o Time Verde vencer, ele continua Verde na partida seguinte — ninguém troca de colete só porque virou "o time da vez". Quem entra desafiando de novo é que veste a cor que sobrou (a do time que acabou de sair).
+- Depois da primeira partida, o time vencedor **fica** (vira "Time da vez", com a cor que já estava usando) e o time perdedor volta pro **fim da fila**, jogador por jogador, completando o time que estiver incompleto antes de abrir um time novo.
 - Quem chega depois (ex.: Nicolas) sempre entra no fim da fila atual.
 
 ## Durante a partida
@@ -28,16 +28,29 @@ O resultado **não precisa mais ser escolhido** — o app decide sozinho pelo pl
 - **Você aperta "Encerrar partida agora"** (antes do tempo acabar): aparece um popup de confirmação — "Tem certeza que quer encerrar a partida agora?" — com o placar atual mostrado. Só depois de confirmar é que o resultado é processado. Cancelar não muda nada, a partida continua normalmente.
 - **Empate** (placar igual, nos dois casos acima): como não dá pra saber sozinho quem fica, aparece a pergunta **"Empatou! Quem vai subir?"** com Time Preto, Time Verde, ou nenhum dos dois (os dois voltam pro fim da fila). Isso não conta como vitória nas estatísticas (só quem vence de verdade ganha ponto de "V"), mas o time escolhido continua como "Time da vez" — igual teria ficado se tivesse vencido.
 
+## Editar a fila — toque no nome (sandbox)
+
+Qualquer nome que aparece no app — na fila, no time da vez, em quadra jogando, ou nos goleiros fixos — é **tocável**. Ao tocar, abre um menu com três opções:
+
+- **🔀 Trocar de lugar**: mostra todo mundo que dá pra trocar (fila inteira + time da vez + quem tá em quadra) e troca as posições dos dois, não importa em que time ou posição cada um esteja. É o jeito mais direto de reorganizar tudo do seu jeito — por exemplo, se alguém precisa sair no meio da partida, você pode trocar essa pessoa com quem quiser da fila pra ela entrar em quadra, sem precisar de nenhuma lógica especial: só troca e depois remove quem saiu.
+- **✏️ Renomear**: abre um campo de texto já preenchido com o nome atual, pra corrigir erro de digitação.
+- **✕ Remover**: tira a pessoa de onde ela estiver. O app decide sozinho o que fazer dependendo de onde ela está:
+  - Se for **goleiro fixo**, só sai da lista de goleiros.
+  - Se estiver **jogando a partida atual**, aciona a substituição automática (veja a seção abaixo — sobe o primeiro da fila no lugar dela, e pergunta se o substituto fica ou mantém a posição).
+  - Se estiver **na fila normal ou no time da vez** (sem partida rolando), só sai — e a fila se recompacta sozinha (veja "efeito cascata" abaixo).
+
+Em todos os casos, quem foi removido **continua nas estatísticas** com tudo que já tinha feito (gols, assistências, jogos) — só sai da fila de times dali pra frente. Pra voltar a jogar, teria que ser cadastrado de novo.
+
 ## Remover jogador em quadra (ex.: machucou) e substituição
 
-Os jogadores que estão **em quadra jogando** agora também têm o ✕ pra remover — não é só na fila de espera. Ao remover alguém que está jogando:
+Ao remover (pelo menu acima) alguém que está **jogando a partida atual**:
 
 1. O **primeiro jogador do próximo time da fila** sobe automaticamente pra completar a vaga (se não tiver ninguém na fila, o time simplesmente segue jogando com um a menos, sem travar nada).
 2. Aparece um popup perguntando sobre esse substituto: **"Fica nesse time"** ou **"Mantém a posição na fila"**:
    - **Fica nesse time**: ele vira jogador normal desse time dali pra frente — se o time vencer (ou ficar no empate), ele continua como campeão junto com o resto; se perder, ele vai pro fim da fila junto com os outros, normalmente.
    - **Mantém a posição na fila**: ele só está ajudando por essa partida. No fim dela — **ganhe, perca ou empate o time** — ele não segue o destino do time: volta pra **frente da fila**, na posição em que estava antes de ser puxado como substituto (geralmente reformando o mesmo time de onde saiu).
 
-O jogador que saiu (o machucado) continua contando nas estatísticas pelo que já fez naquela partida (gols/assistências antes de sair), só não participa mais da fila de times dali pra frente — pra voltar, teria que ser cadastrado de novo.
+Se preferir controlar isso manualmente em vez de deixar o app puxar sozinho, dá pra usar o **🔀 Trocar de lugar** pra colocar quem você quiser em quadra antes de remover a pessoa que vai sair — funciona igual, sem passar pelo popup de substituição.
 
 ### A fila sempre "sobe" pra cobrir vagas (efeito cascata)
 
@@ -49,7 +62,7 @@ Na aba Fila tem uma seção separada **"Goleiros fixos"**, com cadastro próprio
 - **Não entra na fila de times** (não ocupa vaga em nenhum Time Preto/Verde/genérico).
 - Aparece com 🧤 do lado do nome, tanto na lista de goleiros quanto na tabela de Estatísticas.
 - Pode ser selecionado normalmente pra marcar gol ou assistência, mesmo sem estar em nenhum dos dois times da partida.
-- Pode ser removido ou renomeado (✕ no chip / toque no nome) igual um jogador comum.
+- Editável pelo mesmo menu de tocar no nome (renomear/remover — trocar de lugar não se aplica, já que ele não faz parte da fila de times).
 
 ## Gol de qualquer pessoa (inclui gol contra)
 
@@ -97,5 +110,5 @@ Ele pergunta umas coisas (nome do projeto, etc.) e te devolve a URL pública.
 ## Pequenas escolhas que fiz (me avisa se quiser diferente)
 
 - **Duração da partida**: ajustável em botões de − / + (padrão 10 min, de 3 a 60).
-- Dá pra **remover** um jogador da fila (✕ no chip) se ele foi cadastrado errado ou foi embora, e **renomear** tocando no nome (corrige erro de digitação).
+- Tocar em qualquer nome abre o menu de editar (trocar de lugar / renomear / remover) — não tem mais o ✕ separado.
 - Tem um **desfazer último gol**, pra quando clicar errado.
