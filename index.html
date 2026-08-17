@@ -1556,6 +1556,7 @@ function openPlayerActionSheet(playerId){
   html += '<div class="pick-grid">';
   if(!p.fixedGoalkeeper){
     html += '<button class="pick-btn" id="action-swap">🔀 Trocar de lugar</button>';
+    html += '<button class="pick-btn" id="action-goalkeeper">🧤 Virar goleiro fixo</button>';
   }
   html += '<button class="pick-btn" id="action-rename">✏️ Renomear</button>';
   html += '<button class="pick-btn" style="color:var(--red); border-color:rgba(226,84,61,0.35)" id="action-remove">✕ Remover</button>';
@@ -1566,11 +1567,40 @@ function openPlayerActionSheet(playerId){
   if(closeBtn) closeBtn.addEventListener('click', hideModal);
   var swapBtn = document.getElementById('action-swap');
   if(swapBtn) swapBtn.addEventListener('click', function(){ openSwapTargetPicker(playerId); });
+  var gkBtn = document.getElementById('action-goalkeeper');
+  if(gkBtn) gkBtn.addEventListener('click', function(){
+    hideModal();
+    convertToGoalkeeper(playerId);
+  });
   document.getElementById('action-rename').addEventListener('click', function(){ openRenameEditor(playerId); });
   document.getElementById('action-remove').addEventListener('click', function(){
     hideModal();
     performRemovePlayer(playerId);
   });
+}
+
+// tira o jogador da fila de times (igual um "remover" normal, cascateando/substituindo como precisar)
+// e o transforma em goleiro fixo: some da rotação, mas continua disponível pra marcar gol/assistência
+function convertToGoalkeeper(playerId){
+  var p = state.players[playerId];
+  if(!p || p.fixedGoalkeeper) return;
+
+  var inActiveMatch = state.currentMatch && (
+    state.currentMatch.teamA.players.indexOf(playerId) > -1 ||
+    state.currentMatch.teamB.players.indexOf(playerId) > -1
+  );
+  if(inActiveMatch){
+    handlePlayerRemovalDuringMatch(playerId); // puxa substituto e mostra o popup dele, se precisar
+  } else {
+    removePlayerFromQueue(playerId); // sai da fila/campeão, com a fila recompactando em cascata
+  }
+
+  p.fixedGoalkeeper = true;
+  var idx = state.playerOrder.indexOf(playerId);
+  if(idx>-1) state.playerOrder.splice(idx,1);
+  if(state.goalkeeperOrder.indexOf(playerId)===-1) state.goalkeeperOrder.push(playerId);
+  saveState();
+  renderAll();
 }
 
 function openSwapTargetPicker(playerId){

@@ -30,16 +30,17 @@ O resultado **não precisa mais ser escolhido** — o app decide sozinho pelo pl
 
 ## Editar a fila — toque no nome (sandbox)
 
-Qualquer nome que aparece no app — na fila, no time da vez, em quadra jogando, ou nos goleiros fixos — é **tocável**. Ao tocar, abre um menu com três opções:
+Qualquer nome que aparece no app — na fila, no time da vez, em quadra jogando, ou nos goleiros fixos — é **tocável**. Ao tocar, abre um menu com as opções:
 
 - **🔀 Trocar de lugar**: mostra todo mundo que dá pra trocar (fila inteira + time da vez + quem tá em quadra) e troca as posições dos dois, não importa em que time ou posição cada um esteja. É o jeito mais direto de reorganizar tudo do seu jeito — por exemplo, se alguém precisa sair no meio da partida, você pode trocar essa pessoa com quem quiser da fila pra ela entrar em quadra, sem precisar de nenhuma lógica especial: só troca e depois remove quem saiu.
+- **🧤 Virar goleiro fixo**: pra quando alguém para de jogar na linha e passa a ficar só no gol. Tira a pessoa da fila de times (do mesmo jeito que o "Remover" abaixo — cascata ou substituição automática, conforme o caso) e a transforma em goleiro fixo: ela some da rotação de times, mas continua aparecendo nas opções de gol/assistência e nas estatísticas, exatamente como os goleiros cadastrados direto na seção deles. Só aparece pra quem ainda não é goleiro fixo.
 - **✏️ Renomear**: abre um campo de texto já preenchido com o nome atual, pra corrigir erro de digitação.
 - **✕ Remover**: tira a pessoa de onde ela estiver. O app decide sozinho o que fazer dependendo de onde ela está:
   - Se for **goleiro fixo**, só sai da lista de goleiros.
   - Se estiver **jogando a partida atual**, aciona a substituição automática (veja a seção abaixo — sobe o primeiro da fila no lugar dela, e pergunta se o substituto fica ou mantém a posição).
   - Se estiver **na fila normal ou no time da vez** (sem partida rolando), só sai — e a fila se recompacta sozinha (veja "efeito cascata" abaixo).
 
-Em todos os casos, quem foi removido **continua nas estatísticas** com tudo que já tinha feito (gols, assistências, jogos) — só sai da fila de times dali pra frente. Pra voltar a jogar, teria que ser cadastrado de novo.
+Em todos os casos — remover ou virar goleiro fixo — quem saiu da fila **continua nas estatísticas** com tudo que já tinha feito (gols, assistências, jogos).
 
 ## Remover jogador em quadra (ex.: machucou) e substituição
 
@@ -63,6 +64,8 @@ Na aba Fila tem uma seção separada **"Goleiros fixos"**, com cadastro próprio
 - Aparece com 🧤 do lado do nome, tanto na lista de goleiros quanto na tabela de Estatísticas.
 - Pode ser selecionado normalmente pra marcar gol ou assistência, mesmo sem estar em nenhum dos dois times da partida.
 - Editável pelo mesmo menu de tocar no nome (renomear/remover — trocar de lugar não se aplica, já que ele não faz parte da fila de times).
+
+Dá pra cadastrar um goleiro fixo direto nessa seção, **ou converter alguém que já está jogando** a qualquer momento — mesmo no meio de uma partida — usando o **🧤 Virar goleiro fixo** no menu de tocar no nome (veja a seção acima).
 
 ## Gol de qualquer pessoa (inclui gol contra)
 
