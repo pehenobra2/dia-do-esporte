@@ -338,6 +338,7 @@
   }
   .goal-log-item:last-child{border-bottom:none;}
   .goal-log-item .who{color:var(--text); font-weight:600;}
+  .goal-log-item .x{color:var(--text-muted); font-size:13px; cursor:pointer; padding:2px 4px;}
   .goal-log-item .side-dot{width:7px; height:7px; border-radius:50%; flex:none;}
   .goal-log-item .side-dot.a{background:#D9D9D9;}
   .goal-log-item .side-dot.b{background:var(--verde);}
@@ -396,6 +397,7 @@
   }
   .history-item .h-top{display:flex; justify-content:space-between; align-items:center; font-family:var(--font-display); font-size:19px;}
   .history-item .h-goals{color:var(--text-muted); margin-top:4px; font-size:12.5px; line-height:1.5;}
+  .history-item.editable{border-color:rgba(232,163,61,0.4);}
 
   /* Tab bar */
   nav.tabbar{
@@ -774,6 +776,7 @@ function startMatch(durationMinutes){
   var colorA = m.colorA, colorB = m.colorB; // captura antes de zerar o campeão
   state.initialSplitDone = true;
   state.champion = null; // liberado durante a partida; será redefinido ao final
+  state.lastMatchSnapshot = null; // uma vez que uma partida nova começa, a anterior não dá mais pra corrigir
 
   state.currentMatch = {
     teamA: { number: teamA.number, players: teamA.players.slice(), color: colorA },
@@ -800,17 +803,33 @@ function addGoal(team, scorerId, assistId){
   saveState();
 }
 
-function undoLastGoal(){
+function removeGoalAt(index){
   var m = state.currentMatch;
-  if(!m || !m.goals.length) return;
-  var g = m.goals.pop();
+  if(!m || index<0 || index>=m.goals.length) return;
+  var g = m.goals[index];
   if(g.team==='A') m.scoreA--; else m.scoreB--;
+  m.goals.splice(index,1);
   saveState();
 }
 
 function endMatch(result){ // 'A' | 'B' | 'draw-stay-A' | 'draw-stay-B' | 'draw-both-out'
   var m = state.currentMatch;
   if(!m) return;
+
+  // snapshot de tudo ANTES de mexer em qualquer coisa — permite reabrir e corrigir essa partida depois
+  state.lastMatchSnapshot = JSON.parse(JSON.stringify({
+    players: state.players,
+    teams: state.teams,
+    champion: state.champion,
+    currentMatch: state.currentMatch,
+    matchHistory: state.matchHistory,
+    playerOrder: state.playerOrder,
+    goalkeeperOrder: state.goalkeeperOrder,
+    arrivalsSoFar: state.arrivalsSoFar,
+    initialSplitDone: state.initialSplitDone,
+    nextTeamNumber: state.nextTeamNumber,
+    teamSize: state.teamSize
+  }));
 
   var allIds = m.teamA.players.concat(m.teamB.players);
   allIds.forEach(function(id){
@@ -893,6 +912,24 @@ function resolveMatchEnd(){
   } else {
     renderPartida();
   }
+}
+
+// só dá pra corrigir a ÚLTIMA partida concluída, e só se nenhuma partida nova já começou depois dela
+// (senão os times já formados por causa daquele resultado ficariam inconsistentes)
+function canEditLastMatch(){
+  return !!state.lastMatchSnapshot && !state.currentMatch;
+}
+
+// "volta no tempo" pra logo antes da última partida terminar, com os gols que ela tinha na hora,
+// pra você corrigir usando as mesmas ferramentas de sempre (⚽ Gol, remover gol, empate) e concluir de novo
+function editLastMatch(){
+  if(!canEditLastMatch()) return;
+  var snap = state.lastMatchSnapshot;
+  snap.lastMatchSnapshot = null;
+  snap.currentMatch.reopenedForEdit = true;
+  state = snap;
+  saveState();
+  switchTab('partida');
 }
 
 /* ==========================================================================
@@ -1181,8 +1218,12 @@ function renderPartida(){
 
 function renderScoreboard(){
   var m = state.currentMatch;
-  var timerCls = 'timer-display' + (!m.running?' paused':'') + (m.remainingSec<=60 && m.remainingSec>0 && m.running?' ending':'');
+  var editing = !!m.reopenedForEdit;
+  var timerCls = 'timer-display' + (editing || !m.running?' paused':'') + (m.remainingSec<=60 && m.remainingSec>0 && m.running?' ending':'');
   var html = '<div class="scoreboard">';
+  if(editing){
+    html += '<div class="badge preto" style="display:inline-block; margin-bottom:10px;">✏️ Corrigindo a última partida</div>';
+  }
   html += '<div class="'+timerCls+'" id="timer-text">'+fmtTime(m.remainingSec)+'</div>';
   html += '<div class="score-row">'+
     '<div class="score-team '+m.teamA.color+'"><div class="tname">'+colorLabel(m.teamA.color)+'</div><div class="tscore" id="score-a">'+m.scoreA+'</div></div>'+
@@ -1190,7 +1231,12 @@ function renderScoreboard(){
     '<div class="score-team '+m.teamB.color+'"><div class="tname">'+colorLabel(m.teamB.color)+'</div><div class="tscore" id="score-b">'+m.scoreB+'</div></div>'+
     '</div>';
 
-  if(m.remainingSec>0){
+  if(editing){
+    html += '<div class="match-actions">'+
+      '<button class="btn btn-primary" id="btn-open-goal">⚽ Gol</button>'+
+      '</div>'+
+      '<div class="cta-row"><button class="btn btn-secondary btn-sm" id="btn-finish-edit">Salvar correção e concluir</button></div>';
+  } else if(m.remainingSec>0){
     html += '<div class="match-actions">'+
       '<button class="btn btn-secondary" id="btn-toggle-pause">'+(m.running?'⏸ Pausar':'▶ Continuar')+'</button>'+
       '<button class="btn btn-primary" id="btn-open-goal">⚽ Gol</button>'+
@@ -1204,15 +1250,14 @@ function renderScoreboard(){
   }
 
   if(m.goals.length){
-    html += '<div class="goal-log">';
-    m.goals.slice().reverse().forEach(function(g){
+    var goalItems = m.goals.map(function(g, idx){
       var scorer = playerName(g.scorerId);
       var assist = g.assistId ? ' <span style="opacity:.7">(assist. '+esc(playerName(g.assistId))+')</span>' : '';
       var ownTag = g.ownGoal ? ' <span style="opacity:.7">(contra)</span>' : '';
-      html += '<div class="goal-log-item"><span class="side-dot '+(g.team==='A'?'a':'b')+'"></span><span class="who">'+esc(scorer)+'</span>'+ownTag+assist+'</div>';
+      return '<div class="goal-log-item"><span class="side-dot '+(g.team==='A'?'a':'b')+'"></span><span class="who">'+esc(scorer)+'</span>'+ownTag+assist+
+        '<span class="x" data-remove-goal-index="'+idx+'" style="margin-left:auto">✕</span></div>';
     });
-    html += '</div>';
-    html += '<div style="text-align:center"><span class="undo-link" id="btn-undo-goal">desfazer último gol</span></div>';
+    html += '<div class="goal-log">' + goalItems.slice().reverse().join('') + '</div>';
   }
 
   html += '</div>';
@@ -1279,8 +1324,19 @@ function bindPartidaEvents(){
       }
     });
   });
-  var undoBtn = document.getElementById('btn-undo-goal');
-  if(undoBtn) undoBtn.addEventListener('click', function(){ undoLastGoal(); renderPartida(); });
+  document.querySelectorAll('[data-remove-goal-index]').forEach(function(el){
+    el.addEventListener('click', function(e){
+      e.stopPropagation();
+      var idx = parseInt(el.getAttribute('data-remove-goal-index'), 10);
+      removeGoalAt(idx);
+      renderPartida();
+    });
+  });
+  var finishEditBtn = document.getElementById('btn-finish-edit');
+  if(finishEditBtn) finishEditBtn.addEventListener('click', function(){
+    if(state.currentMatch) delete state.currentMatch.reopenedForEdit;
+    resolveMatchEnd();
+  });
 
   document.querySelectorAll('[data-draw-stay]').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -1727,7 +1783,8 @@ function renderStats(){
 
   if(state.matchHistory.length){
     html += '<h2 class="section-title">Histórico de partidas</h2>';
-    state.matchHistory.slice().reverse().forEach(function(m){
+    var editable = canEditLastMatch();
+    state.matchHistory.slice().reverse().forEach(function(m, i){
       var colA = m.teamAColor, colB = m.teamBColor;
       var emojiA = colA==='verde' ? '🟢' : '⚫';
       var emojiB = colB==='verde' ? '🟢' : '⚫';
@@ -1738,15 +1795,38 @@ function renderStats(){
         m.result==='draw-stay-A' ? 'Empate — '+colorLabel(colA)+' ficou' :
         m.result==='draw-stay-B' ? 'Empate — '+colorLabel(colB)+' ficou' :
         (m.result==='draw-both-out' || m.result==='draw') ? 'Empate — os dois saíram' : '';
-      html += '<div class="history-item">'+
+      var canEditThis = editable && i===0;
+      html += '<div class="history-item'+(canEditThis?' editable':'')+'">'+
         '<div class="h-top"><span>'+colorLabel(colA)+'</span><span>'+m.scoreA+' × '+m.scoreB+'</span><span>'+colorLabel(colB)+'</span></div>'+
         (resultLabel? '<div class="h-goals" style="color:var(--text)">'+resultLabel+'</div>' : '')+
         (goalsLine? '<div class="h-goals">'+goalsLine+'</div>' : '<div class="h-goals">Sem gols.</div>')+
+        (canEditThis? '<button class="btn btn-secondary btn-sm" style="margin-top:10px" data-edit-last-match="1">✏️ Corrigir esta partida</button>' : '')+
         '</div>';
     });
   }
 
   el.innerHTML = html;
+  bindStatsEvents();
+}
+
+function bindStatsEvents(){
+  var editBtn = document.querySelector('[data-edit-last-match]');
+  if(!editBtn) return;
+  editBtn.addEventListener('click', function(){
+    var sheet = document.getElementById('modal-sheet');
+    sheet.innerHTML = modalHead('Corrigir última partida')+
+      '<div class="modal-confirm-text">Isso reabre a última partida do jeito que ela estava, com os gols que tinha na hora. Corrija com o botão ⚽ Gol e a lixeira de cada gol, e conclua de novo quando estiver certo.</div>'+
+      '<button class="btn btn-primary" id="confirm-edit-match">Reabrir partida</button>'+
+      '<div class="cta-row"><button class="btn btn-ghost" id="cancel-edit-match">Cancelar</button></div>';
+    showModal();
+    var closeBtn = document.getElementById('modal-close-btn');
+    if(closeBtn) closeBtn.addEventListener('click', hideModal);
+    document.getElementById('cancel-edit-match').addEventListener('click', hideModal);
+    document.getElementById('confirm-edit-match').addEventListener('click', function(){
+      hideModal();
+      editLastMatch();
+    });
+  });
 }
 
 /* ==========================================================================

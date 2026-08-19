@@ -75,6 +75,19 @@ No modal de gol, depois dos botões rápidos com os jogadores do time escolhido,
 
 O mesmo select aparece no passo de assistência, pelo mesmo motivo.
 
+## Corrigir a última partida (errou um gol, uma assistência, ou o resultado)
+
+Depois que uma partida termina, o card dela na aba **Estatísticas** (só o mais recente) ganha um botão **✏️ Corrigir esta partida**. Serve pra quando você percebe depois que esqueceu de marcar um gol, errou quem deu assistência, errou o time, ou — o pior caso — a partida terminou empatada, você escolheu quem ficava, e depois descobriu que devia ter sido o outro time (ex.: decidiram nos pênaltis e o time que você marcou como vencedor acabou perdendo).
+
+Ao tocar em "Corrigir esta partida" (com uma confirmação antes), o app **volta a partida pro estado de antes de ter terminado** — com o placar e os gols exatamente como estavam — e te leva de volta pra aba Partida, em modo de correção. De lá, você usa as mesmas ferramentas de sempre:
+- **⚽ Gol** pra adicionar o que faltou.
+- A **lixeira em cada gol do log** (não só o último) pra apagar o que foi marcado errado.
+- **Salvar correção e concluir** quando o placar já estiver certo — o app decide o resultado sozinho de novo (ou pergunta quem sobe, se ainda continuar empatado).
+
+Isso substitui ter que sair trocando todo mundo na mão: as estatísticas dos jogadores e a fila de times são refeitas do zero a partir do placar corrigido, sem duplicar nem acumular o que tinha sido contado errado antes.
+
+**Só dá pra corrigir a partida mais recente**, e só enquanto nenhuma partida nova começou depois dela — porque a formação dos times seguintes já depende do resultado daquela. Se uma partida nova já começou, a anterior não aparece mais como corrigível.
+
 ## Aviso de fim de partida (vibração + som)
 
 Quando o cronômetro chega a zero **sozinho** (não quando você aperta "Encerrar partida agora"), o celular vibra num padrão de chamar atenção e toca um beep curto. O áudio é destravado no toque de "Iniciar partida" (gesto do usuário), então funciona mesmo com a tela apagada ou em segundo plano na maioria dos Android.
@@ -114,4 +127,4 @@ Ele pergunta umas coisas (nome do projeto, etc.) e te devolve a URL pública.
 
 - **Duração da partida**: ajustável em botões de − / + (padrão 10 min, de 3 a 60).
 - Tocar em qualquer nome abre o menu de editar (trocar de lugar / renomear / remover) — não tem mais o ✕ separado.
-- Tem um **desfazer último gol**, pra quando clicar errado.
+- Cada gol no log da partida tem uma lixeira própria — dá pra apagar qualquer um deles (não só o último), sem precisar desfazer em cascata.
