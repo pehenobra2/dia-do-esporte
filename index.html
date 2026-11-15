@@ -399,6 +399,57 @@
   .history-item .h-goals{color:var(--text-muted); margin-top:4px; font-size:12.5px; line-height:1.5;}
   .history-item.editable{border-color:rgba(232,163,61,0.4);}
 
+  /* Modo de jogo / times fechados */
+  .mode-grid{display:flex; gap:10px; margin-bottom:18px;}
+  .mode-card{
+    flex:1; background:var(--surface); border:1px solid var(--line); color:var(--text);
+    border-radius:16px; padding:14px 12px; text-align:left; cursor:pointer;
+  }
+  .mode-card:active{transform:scale(0.98);}
+  .mode-card .mt{font-family:var(--font-display); font-size:21px; display:block; margin-bottom:4px; letter-spacing:0.3px;}
+  .mode-card .md{font-size:12px; color:var(--text-muted); line-height:1.4; display:block;}
+  .mode-card.active{border-color:var(--gold); background:var(--gold-dim);}
+  .team-name-input{
+    width:100%; background:var(--bg-2); border:1px solid var(--line); color:var(--text);
+    padding:11px 12px; border-radius:11px; font-size:19px; font-family:var(--font-display);
+    letter-spacing:0.3px; outline:none;
+  }
+  .team-name-input:focus{border-color:var(--teal);}
+  .team-name-input.invalid{border-color:var(--red);}
+  .mini-add-row{display:flex; gap:8px; margin-top:10px;}
+  .mini-add-row input{
+    flex:1; min-width:0; background:var(--bg-2); border:1px solid var(--line); color:var(--text);
+    padding:10px 12px; border-radius:11px; font-size:15px; outline:none;
+  }
+  .mini-add-row input:focus{border-color:var(--teal);}
+  .mini-add-row button{
+    background:var(--gold); color:#1C1305; border:none; border-radius:11px;
+    padding:0 14px; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  .team-foot{display:flex; justify-content:space-between; align-items:center; margin-top:10px;}
+  .team-foot .waiting-note{margin:0;}
+  .link-btn{background:none; border:none; color:var(--text-muted); font-size:12.5px; text-decoration:underline; cursor:pointer; padding:4px;}
+  .warn-note{color:var(--red); font-size:13px; margin-top:10px; line-height:1.45;}
+  .field-label{display:block; font-size:12.5px; color:var(--text-muted); margin:12px 0 6px;}
+  .field-select{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    padding:13px; border-radius:12px; font-size:15px; outline:none; appearance:none; -webkit-appearance:none;
+  }
+  .field-select:focus{border-color:var(--teal);}
+  .lineup{margin-top:14px;}
+  .lineup-title{font-size:12.5px; color:var(--text-muted); margin-bottom:7px;}
+  .chip.toggle{cursor:pointer;}
+  .chip.toggle.off{opacity:0.4; text-decoration:line-through;}
+  .sub-team{display:block; font-size:11px; color:var(--text-muted); margin-top:1px;}
+  .edit-score{display:flex; justify-content:space-between; align-items:center; gap:8px; font-family:var(--font-display); font-size:20px; margin-bottom:6px;}
+  .edit-score strong{font-weight:600; font-size:26px;}
+  .edit-goal{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:4px 12px 14px; margin-bottom:10px;}
+  .edit-goal-head{display:flex; justify-content:space-between; align-items:center; padding-top:10px; font-weight:700; font-size:14px;}
+  .edit-goal-del{background:none; border:none; color:var(--red); font-size:13px; cursor:pointer; padding:4px;}
+  .edit-error{color:var(--red); font-size:13.5px; margin:10px 0 0; line-height:1.45;}
+  .match-actions-inline{display:flex; gap:8px; margin-top:10px;}
+  .match-actions-inline .btn{margin:0;}
+
   /* Tab bar */
   nav.tabbar{
     position:fixed;
@@ -493,7 +544,7 @@
   </main>
 
   <nav class="tabbar">
-    <button class="tab-btn" data-tab="fila"><span class="ic">📋</span>Fila</button>
+    <button class="tab-btn" data-tab="fila"><span class="ic">📋</span><span class="tab-label">Fila</span></button>
     <button class="tab-btn" data-tab="partida"><span class="ic">⏱️</span>Partida<span class="pulse hidden" id="match-pulse"></span></button>
     <button class="tab-btn" data-tab="stats"><span class="ic">📊</span>Estatísticas</button>
   </nav>
@@ -524,7 +575,10 @@ function defaultState(){
     currentMatch: null,
     matchHistory: [],
     playerOrder: [],       // ordem de cadastro dos jogadores da fila (entram nos times)
-    goalkeeperOrder: []    // ids de goleiros fixos — não entram na fila, mas marcam gol/assistência
+    goalkeeperOrder: [],   // ids de goleiros fixos — não entram na fila, mas marcam gol/assistência
+    mode: 'rotation',      // 'rotation' (fila por chegada, quem ganha fica) | 'closed' (times fechados, campeonato/amistoso)
+    closedTeams: [],       // [{id, name, players:[ids]}] — só no modo 'closed', quantidade de jogadores livre por equipe
+    closedPick: { a:null, b:null, outA:[], outB:[] } // equipes escolhidas pra próxima partida (e quem ficou de fora da escalação)
   };
 }
 
@@ -538,10 +592,41 @@ function loadState(){
     if(!parsed || typeof parsed !== 'object') return defaultState();
     if(!parsed.teamSize) parsed.teamSize = 4; // sessões salvas antes desse ajuste
     if(!parsed.goalkeeperOrder) parsed.goalkeeperOrder = []; // sessões salvas antes desse ajuste
+    if(!parsed.mode) parsed.mode = 'rotation';               // sessões salvas antes do modo "times fechados"
+    if(!parsed.closedTeams) parsed.closedTeams = [];
+    if(!parsed.closedPick) parsed.closedPick = { a:null, b:null, outA:[], outB:[] };
+    if(!parsed.matchHistory) parsed.matchHistory = [];
+    migrateHistoryIds(parsed);
     return parsed;
   }catch(e){
     return defaultState();
   }
+}
+
+// partidas salvas por versões antigas guardavam só nomes. Tenta recuperar os ids (só quando cada nome
+// aponta pra um único jogador) pra essas partidas também poderem ser editadas. Se não der, ficam só de leitura.
+function migrateHistoryIds(s){
+  if(!s.players) return;
+  var byName = {};
+  Object.keys(s.players).forEach(function(id){
+    var n = s.players[id].name;
+    (byName[n] = byName[n] || []).push(id);
+  });
+  function idFor(n){ var a = byName[n]; return (a && a.length===1) ? a[0] : null; }
+  s.matchHistory.forEach(function(e){
+    if(e.teamAIds && e.teamBIds) return;
+    var a = (e.teamANames||[]).map(idFor), b = (e.teamBNames||[]).map(idFor);
+    if(a.indexOf(null)>-1 || b.indexOf(null)>-1) return;
+    var goals = [];
+    for(var i=0;i<(e.goals||[]).length;i++){
+      var g = e.goals[i];
+      var sid = idFor(g.scorer);
+      var aid = g.assist ? idFor(g.assist) : null;
+      if(!sid || (g.assist && !aid)) return;
+      goals.push({ team:g.team, scorer:g.scorer, assist:g.assist||null, scorerId:sid, assistId:aid, ownGoal:!!g.ownGoal, remainingAtGoal:null });
+    }
+    e.teamAIds = a; e.teamBIds = b; e.goals = goals;
+  });
 }
 
 function saveState(){
@@ -626,7 +711,11 @@ function removeGoalkeeper(playerId){
   var idx = state.goalkeeperOrder.indexOf(playerId);
   if(idx>-1){
     state.goalkeeperOrder.splice(idx,1);
-    delete state.players[playerId];
+    if(isPlayerReferenced(playerId)){
+      state.players[playerId].removed = true; // já tem jogo/gol registrado: sai da lista de goleiros, mas fica nas estatísticas
+    } else {
+      delete state.players[playerId];
+    }
     saveState();
     return true;
   }
@@ -635,7 +724,266 @@ function removeGoalkeeper(playerId){
 
 // todo mundo cadastrado na sessão (fila + goleiros fixos), pra oferecer no select de gol/assistência
 function fullRosterIds(){
-  return state.playerOrder.concat(state.goalkeeperOrder).filter(function(id){ return !!state.players[id]; });
+  return state.playerOrder.concat(state.goalkeeperOrder).filter(function(id){ return !!state.players[id] && !state.players[id].removed; });
+}
+
+// todo mundo que aparece nas estatísticas: quem está cadastrado + quem saiu mas já tem partida/gol registrados
+function statsIds(){
+  var seen = {}, out = [];
+  state.playerOrder.concat(state.goalkeeperOrder).forEach(function(id){
+    if(state.players[id] && !seen[id]){ seen[id] = true; out.push(id); }
+  });
+  Object.keys(state.players).forEach(function(id){
+    if(!seen[id]){ seen[id] = true; out.push(id); }
+  });
+  return out;
+}
+
+// o jogador aparece em alguma estatística, no histórico ou na partida em andamento? (se sim, não pode sumir de vez)
+function isPlayerReferenced(playerId){
+  var p = state.players[playerId];
+  if(!p) return false;
+  if(p.games || p.goals || p.assists || p.ownGoals) return true;
+  function inEntryLike(parts, goals){
+    if(parts && parts.indexOf(playerId) > -1) return true;
+    return (goals||[]).some(function(g){ return g.scorerId===playerId || g.assistId===playerId; });
+  }
+  var inHistory = state.matchHistory.some(function(e){
+    return inEntryLike((e.teamAIds||[]).concat(e.teamBIds||[]), e.goals);
+  });
+  if(inHistory) return true;
+  var m = state.currentMatch;
+  if(m && inEntryLike(m.teamA.players.concat(m.teamB.players), m.goals)) return true;
+  return false;
+}
+
+/* ==========================================================================
+   MODO "TIMES FECHADOS" — equipes com nome e elenco próprio (tamanho livre, pode variar),
+   pra campeonato/amistoso. Sem fila e sem "quem ganha fica": a cada partida você escolhe as duas equipes.
+   ========================================================================== */
+function isClosed(){ return state.mode === 'closed'; }
+
+function tid(){ return 't' + Math.random().toString(36).slice(2,10); }
+
+function closedTeamById(id){
+  for(var i=0;i<state.closedTeams.length;i++){ if(state.closedTeams[i].id===id) return state.closedTeams[i]; }
+  return null;
+}
+
+function closedRoster(teamId){
+  var t = closedTeamById(teamId);
+  return t ? t.players : [];
+}
+
+function closedTeamOfPlayer(playerId){
+  for(var i=0;i<state.closedTeams.length;i++){
+    if(state.closedTeams[i].players.indexOf(playerId) > -1) return state.closedTeams[i];
+  }
+  return null;
+}
+
+// só dá pra trocar de modo com a sessão zerada (nenhum jogador, nenhuma partida)
+function canChangeMode(){
+  return !state.playerOrder.length && !state.goalkeeperOrder.length && !state.matchHistory.length && !state.currentMatch;
+}
+
+function freshClosedPick(){ return { a:null, b:null, outA:[], outB:[] }; }
+
+function setMode(mode){
+  if(!canChangeMode()) return false;
+  state.mode = mode;
+  state.closedPick = freshClosedPick();
+  if(mode==='closed'){
+    while(state.closedTeams.length < 2) state.closedTeams.push({ id:tid(), name:'', players:[] });
+  } else {
+    state.closedTeams = [];
+  }
+  saveState();
+  return true;
+}
+
+function addClosedTeam(){
+  var t = { id:tid(), name:'', players:[] };
+  state.closedTeams.push(t);
+  saveState();
+  return t;
+}
+
+function setClosedTeamName(teamId, name){
+  var t = closedTeamById(teamId);
+  if(!t) return;
+  t.name = (name||'').replace(/\s+/g,' ').trim();
+  saveState();
+}
+
+function teamHasMatches(teamId){
+  if(state.currentMatch && (state.currentMatch.teamA.teamId===teamId || state.currentMatch.teamB.teamId===teamId)) return true;
+  return state.matchHistory.some(function(e){ return e.teamAId===teamId || e.teamBId===teamId; });
+}
+
+// remove a equipe (e os jogadores dela, que ainda não têm nenhuma estatística). Equipe que já jogou não pode sair.
+function removeClosedTeam(teamId){
+  var t = closedTeamById(teamId);
+  if(!t || teamHasMatches(teamId)) return false;
+  t.players.slice().forEach(function(pid){ removeClosedPlayer(pid); });
+  state.closedTeams = state.closedTeams.filter(function(x){ return x.id!==teamId; });
+  if(state.closedPick.a===teamId) state.closedPick.a = null;
+  if(state.closedPick.b===teamId) state.closedPick.b = null;
+  saveState();
+  return true;
+}
+
+function addClosedPlayer(teamId, name){
+  name = (name||'').trim();
+  var t = closedTeamById(teamId);
+  if(!name || !t) return null;
+  var id = uid();
+  state.players[id] = { id:id, name:name, games:0, goals:0, assists:0, ownGoals:0, wins:0, fixedGoalkeeper:false };
+  state.playerOrder.push(id);
+  t.players.push(id);
+  saveState();
+  return id;
+}
+
+// tira o jogador do elenco. Se ele já jogou/marcou, continua nas estatísticas; se nunca apareceu em nada, some de vez.
+function removeClosedPlayer(playerId){
+  var t = closedTeamOfPlayer(playerId);
+  if(t) t.players.splice(t.players.indexOf(playerId), 1);
+  ['outA','outB'].forEach(function(k){
+    state.closedPick[k] = (state.closedPick[k]||[]).filter(function(x){ return x!==playerId; });
+  });
+  if(!isPlayerReferenced(playerId)){
+    delete state.players[playerId];
+    var i = state.playerOrder.indexOf(playerId);
+    if(i>-1) state.playerOrder.splice(i,1);
+  }
+  saveState();
+}
+
+function moveClosedPlayer(playerId, toTeamId){
+  var from = closedTeamOfPlayer(playerId);
+  var to = closedTeamById(toTeamId);
+  if(!to || from===to) return false;
+  if(from) from.players.splice(from.players.indexOf(playerId), 1);
+  to.players.push(playerId);
+  ['outA','outB'].forEach(function(k){
+    state.closedPick[k] = (state.closedPick[k]||[]).filter(function(x){ return x!==playerId; });
+  });
+  saveState();
+  return true;
+}
+
+function normName(n){ return String(n||'').trim().toLowerCase(); }
+
+// equipes que podem ser escolhidas pra jogar: precisam de nome e de pelo menos 1 jogador
+function eligibleClosedTeams(){
+  return state.closedTeams.filter(function(t){ return t.name && t.players.length > 0; });
+}
+
+function duplicateClosedNames(){
+  var seen = {}, dups = {};
+  state.closedTeams.forEach(function(t){
+    var n = normName(t.name);
+    if(!n) return;
+    if(seen[n]) dups[n] = true;
+    seen[n] = true;
+  });
+  return Object.keys(dups);
+}
+
+// escalação de um lado: elenco da equipe menos quem foi desmarcado
+function closedLineup(side){
+  var teamId = state.closedPick[side==='A'?'a':'b'];
+  var out = state.closedPick[side==='A'?'outA':'outB'] || [];
+  return closedRoster(teamId).filter(function(id){ return out.indexOf(id)===-1; });
+}
+
+function closedPickProblem(){
+  var p = state.closedPick;
+  var ta = p.a ? closedTeamById(p.a) : null, tb = p.b ? closedTeamById(p.b) : null;
+  if(!ta || !tb) return 'Escolha as duas equipes.';
+  if(ta.id===tb.id) return 'Escolha duas equipes diferentes.';
+  if(!ta.name || !tb.name) return 'Dê nome às duas equipes.';
+  if(normName(ta.name)===normName(tb.name)) return 'As duas equipes têm o mesmo nome. Renomeie uma delas na aba Equipes.';
+  if(!closedLineup('A').length || !closedLineup('B').length) return 'Cada equipe precisa de pelo menos 1 jogador na escalação.';
+  return null;
+}
+
+/* ==========================================================================
+   ESTATÍSTICAS DERIVADAS DO HISTÓRICO — cada partida guarda ids de quem jogou e de todos os gols.
+   Aplicar/desfazer uma partida é simétrico, então dá pra editar qualquer partida e as estatísticas continuam certas.
+   ========================================================================== */
+function applyEntryStats(e, players, sign){
+  function pl(id){ return players[id]; }
+  var ida = e.teamAIds || [], idb = e.teamBIds || [];
+  ida.concat(idb).forEach(function(id){ if(pl(id)) pl(id).games += sign; });
+  (e.goals||[]).forEach(function(g){
+    if(g.ownGoal){
+      if(pl(g.scorerId)) pl(g.scorerId).ownGoals = (pl(g.scorerId).ownGoals||0) + sign;
+    } else if(pl(g.scorerId)){
+      pl(g.scorerId).goals += sign;
+    }
+    if(g.assistId && pl(g.assistId)) pl(g.assistId).assists += sign;
+  });
+  var winners = e.result==='A' ? ida : (e.result==='B' ? idb : null);
+  if(winners) winners.forEach(function(id){ if(pl(id)) pl(id).wins += sign; });
+}
+
+function buildHistoryEntry(m, result){
+  var closed = m.mode === 'closed';
+  return {
+    version: 2,
+    mode: closed ? 'closed' : 'rotation',
+    teamANumber: m.teamA.number, teamBNumber: m.teamB.number,
+    teamAColor: m.teamA.color, teamBColor: m.teamB.color,
+    teamAId: closed ? m.teamA.teamId : null, teamBId: closed ? m.teamB.teamId : null,
+    teamAName: closed ? sideLabel(m.teamA) : null, teamBName: closed ? sideLabel(m.teamB) : null,
+    teamAIds: m.teamA.players.slice(), teamBIds: m.teamB.players.slice(),
+    teamANames: m.teamA.players.map(playerName),
+    teamBNames: m.teamB.players.map(playerName),
+    scoreA: m.scoreA, scoreB: m.scoreB, result: result,
+    goals: m.goals.map(function(g){
+      return {
+        team: g.team, scorerId: g.scorerId, assistId: g.assistId || null, ownGoal: !!g.ownGoal,
+        remainingAtGoal: g.remainingAtGoal == null ? null : g.remainingAtGoal,
+        scorer: playerName(g.scorerId), assist: g.assistId ? playerName(g.assistId) : null
+      };
+    }),
+    endedAt: Date.now()
+  };
+}
+
+// contexto de quem é de qual lado: usado pra detectar gol contra, tanto na partida ao vivo quanto na edição
+function ctxFromMatch(m){
+  var closed = m.mode === 'closed';
+  return {
+    partsA: m.teamA.players, partsB: m.teamB.players,
+    rosterA: closed ? closedRoster(m.teamA.teamId) : [],
+    rosterB: closed ? closedRoster(m.teamB.teamId) : []
+  };
+}
+
+// o gol é "para" a equipe `team`; se quem marcou é do outro lado, é gol contra
+function isOwnGoal(ctx, team, scorerId){
+  var own = team==='A' ? ctx.partsA : ctx.partsB;
+  var opp = team==='A' ? ctx.partsB : ctx.partsA;
+  var oppRoster = team==='A' ? ctx.rosterB : ctx.rosterA;
+  if(own.indexOf(scorerId) > -1) return false;
+  return opp.indexOf(scorerId) > -1 || oppRoster.indexOf(scorerId) > -1;
+}
+
+// nos times fechados, quem marca/assiste e é do elenco mas não estava na escalação entra na lista de quem jogou
+function normalizeParticipants(ctx, goals){
+  function ensure(side, id){
+    var parts = side==='A' ? ctx.partsA : ctx.partsB;
+    var roster = side==='A' ? ctx.rosterA : ctx.rosterB;
+    if(id && parts.indexOf(id)===-1 && roster.indexOf(id) > -1) parts.push(id);
+  }
+  goals.forEach(function(g){
+    var opp = g.team==='A' ? 'B' : 'A';
+    if(g.ownGoal) ensure(opp, g.scorerId); else ensure(g.team, g.scorerId);
+    if(g.assistId) ensure(g.team, g.assistId);
+  });
 }
 
 function removePlayerFromQueue(playerId){
@@ -744,6 +1092,28 @@ function colorLabel(color){
   return color==='preto' ? 'Time Preto' : (color==='verde' ? 'Time Verde' : 'Time');
 }
 
+// nome de um lado da partida: nos times fechados é o nome da equipe (sempre o atual); na fila, a cor do colete
+function sideLabel(side){
+  if(side && side.teamId){
+    var t = closedTeamById(side.teamId);
+    return (t && t.name) ? t.name : (side.name || 'Equipe');
+  }
+  return colorLabel(side && side.color);
+}
+
+// o mesmo, mas pra uma partida já gravada no histórico
+function entrySideLabel(e, which){
+  var id = which==='A' ? e.teamAId : e.teamBId;
+  var nm = which==='A' ? e.teamAName : e.teamBName;
+  if(id || nm){
+    var t = id ? closedTeamById(id) : null;
+    return (t && t.name) ? t.name : (nm || 'Equipe');
+  }
+  return colorLabel(which==='A' ? e.teamAColor : e.teamBColor);
+}
+
+function sideEmoji(color){ return color==='verde' ? '🟢' : '⚫'; }
+
 function getMatchup(){
   var teamA, teamB, colorA, colorB;
   if(state.champion){
@@ -762,6 +1132,7 @@ function getMatchup(){
 }
 
 function startMatch(durationMinutes){
+  if(isClosed()) return startClosedMatch(durationMinutes);
   var m = getMatchup();
   if(!m.ready) return false;
 
@@ -779,6 +1150,7 @@ function startMatch(durationMinutes){
   state.lastMatchSnapshot = null; // uma vez que uma partida nova começa, a anterior não dá mais pra corrigir
 
   state.currentMatch = {
+    mode: 'rotation',
     teamA: { number: teamA.number, players: teamA.players.slice(), color: colorA },
     teamB: { number: teamB.number, players: teamB.players.slice(), color: colorB },
     durationSec: Math.round(durationMinutes*60),
@@ -796,10 +1168,12 @@ function startMatch(durationMinutes){
 function addGoal(team, scorerId, assistId){
   var m = state.currentMatch;
   if(!m) return;
-  var oppTeam = team==='A' ? m.teamB : m.teamA;
-  var ownGoal = oppTeam.players.indexOf(scorerId) > -1;
+  var ctx = ctxFromMatch(m);
+  var ownGoal = isOwnGoal(ctx, team, scorerId);
   if(team==='A') m.scoreA++; else m.scoreB++;
-  m.goals.push({ team:team, scorerId:scorerId, assistId:assistId||null, ownGoal:ownGoal, remainingAtGoal:m.remainingSec });
+  var goal = { team:team, scorerId:scorerId, assistId:assistId||null, ownGoal:ownGoal, remainingAtGoal:m.remainingSec };
+  m.goals.push(goal);
+  if(m.mode==='closed') normalizeParticipants(ctx, [goal]); // quem do elenco entra em campo marcando/assistindo passa a contar como "jogou"
   saveState();
 }
 
@@ -831,19 +1205,6 @@ function endMatch(result){ // 'A' | 'B' | 'draw-stay-A' | 'draw-stay-B' | 'draw-
     teamSize: state.teamSize
   }));
 
-  var allIds = m.teamA.players.concat(m.teamB.players);
-  allIds.forEach(function(id){
-    if(state.players[id]) state.players[id].games++;
-  });
-  m.goals.forEach(function(g){
-    if(g.ownGoal){
-      if(state.players[g.scorerId]) state.players[g.scorerId].ownGoals = (state.players[g.scorerId].ownGoals||0) + 1;
-    } else if(state.players[g.scorerId]) {
-      state.players[g.scorerId].goals++;
-    }
-    if(g.assistId && state.players[g.assistId]) state.players[g.assistId].assists++;
-  });
-
   var winnerTeam=null, stayTeam=null, loserTeams=[];
   if(result==='A'){ winnerTeam=m.teamA; loserTeams=[m.teamB]; }
   else if(result==='B'){ winnerTeam=m.teamB; loserTeams=[m.teamA]; }
@@ -851,10 +1212,8 @@ function endMatch(result){ // 'A' | 'B' | 'draw-stay-A' | 'draw-stay-B' | 'draw-
   else if(result==='draw-stay-B'){ stayTeam=m.teamB; loserTeams=[m.teamA]; }
   else { loserTeams=[m.teamA, m.teamB]; } // 'draw-both-out': ninguém fica, os dois voltam pra fila
 
-  // vitória de verdade conta ponto de "vitórias"; time que só ficou por escolha no empate, não
-  if(winnerTeam){
-    winnerTeam.players.forEach(function(id){ if(state.players[id]) state.players[id].wins++; });
-  }
+  // (jogos, gols, assistências e vitórias são contabilizados a partir do histórico, no fim — ver commitMatchToHistory.
+  // vitória de verdade conta ponto de "vitórias"; time que só ficou por escolha no empate, não)
   var continuingTeam = winnerTeam || stayTeam;
 
   // substitutos que entraram no meio/fim da partida e pediram pra manter a posição na fila
@@ -881,20 +1240,50 @@ function endMatch(result){ // 'A' | 'B' | 'draw-stay-A' | 'draw-stay-B' | 'draw-
   if(state.champion) topUpTeamFromQueue(state.champion);
   returnPlayersToFrontOfQueue(keepSpotIds);
 
-  state.matchHistory.push({
-    teamANumber:m.teamA.number, teamBNumber:m.teamB.number,
-    teamAColor:m.teamA.color, teamBColor:m.teamB.color,
-    teamANames: m.teamA.players.map(playerName),
-    teamBNames: m.teamB.players.map(playerName),
-    scoreA:m.scoreA, scoreB:m.scoreB, result:result,
-    goals: m.goals.map(function(g){
-      return { team:g.team, scorer:playerName(g.scorerId), assist:g.assistId?playerName(g.assistId):null, ownGoal:!!g.ownGoal };
-    }),
-    endedAt: Date.now()
-  });
+  commitMatchToHistory(m, result);
 
   state.currentMatch = null;
   saveState();
+}
+
+// grava a partida no histórico (com ids) e soma as estatísticas dela
+function commitMatchToHistory(m, result){
+  var entry = buildHistoryEntry(m, result);
+  applyEntryStats(entry, state.players, +1);
+  state.matchHistory.push(entry);
+}
+
+// partida entre equipes fechadas: o resultado vem só do placar, sem fila e sem escolher quem sobe
+function endClosedMatch(){
+  var m = state.currentMatch;
+  if(!m) return;
+  var result = m.scoreA > m.scoreB ? 'A' : (m.scoreA < m.scoreB ? 'B' : 'draw');
+  commitMatchToHistory(m, result);
+  state.currentMatch = null;
+  state.lastMatchSnapshot = null;
+  saveState();
+}
+
+function startClosedMatch(durationMinutes){
+  if(closedPickProblem()) return false;
+  var p = state.closedPick;
+  var ta = closedTeamById(p.a), tb = closedTeamById(p.b);
+  state.currentMatch = {
+    mode: 'closed',
+    teamA: { number:null, teamId:ta.id, name:ta.name, players:closedLineup('A'), color:'preto' }, // cor só pra distinguir os lados na tela
+    teamB: { number:null, teamId:tb.id, name:tb.name, players:closedLineup('B'), color:'verde' },
+    durationSec: Math.round(durationMinutes*60),
+    remainingSec: Math.round(durationMinutes*60),
+    running: true,
+    scoreA: 0,
+    scoreB: 0,
+    goals: [],
+    startedAt: Date.now()
+  };
+  state.closedPick = freshClosedPick();
+  state.lastMatchSnapshot = null;
+  saveState();
+  return true;
 }
 
 function resetSession(){
@@ -906,7 +1295,10 @@ function resetSession(){
 function resolveMatchEnd(){
   var m = state.currentMatch;
   if(!m) return;
-  if(m.scoreA !== m.scoreB){
+  if(m.mode==='closed'){
+    endClosedMatch(); // times fechados: empate é só empate, não tem fila pra decidir
+    renderAll();
+  } else if(m.scoreA !== m.scoreB){
     endMatch(m.scoreA > m.scoreB ? 'A' : 'B');
     renderAll();
   } else {
@@ -917,7 +1309,7 @@ function resolveMatchEnd(){
 // só dá pra corrigir a ÚLTIMA partida concluída, e só se nenhuma partida nova já começou depois dela
 // (senão os times já formados por causa daquele resultado ficariam inconsistentes)
 function canEditLastMatch(){
-  return !!state.lastMatchSnapshot && !state.currentMatch;
+  return !isClosed() && !!state.lastMatchSnapshot && !state.currentMatch;
 }
 
 // "volta no tempo" pra logo antes da última partida terminar, com os gols que ela tinha na hora,
@@ -927,7 +1319,7 @@ function editLastMatch(){
   var snap = state.lastMatchSnapshot;
   snap.lastMatchSnapshot = null;
   snap.currentMatch.reopenedForEdit = true;
-  state = snap;
+  state = Object.assign(defaultState(), snap, { mode:'rotation' }); // o snapshot só guarda a fila; o resto vem do padrão
   saveState();
   switchTab('partida');
 }
@@ -1061,12 +1453,35 @@ function bindGoalkeeperEvents(){
   if(input) input.addEventListener('keydown', function(e){ if(e.key==='Enter') doAdd(); });
 }
 
+function renderModeSelector(){
+  var rot = !isClosed();
+  return '<h2 class="section-title" style="margin-top:0">Como vai ser o fut?</h2>'+
+    '<div class="mode-grid">'+
+      '<button class="mode-card'+(rot?' active':'')+'" data-mode="rotation"><span class="mt">🔁 Fila por chegada</span><span class="md">Times montados pela ordem de chegada. Quem ganha fica.</span></button>'+
+      '<button class="mode-card'+(!rot?' active':'')+'" data-mode="closed"><span class="mt">🛡️ Times fechados</span><span class="md">Equipes com nome e elenco próprio. Campeonato ou amistoso.</span></button>'+
+    '</div>';
+}
+
+function bindModeSelectorEvents(){
+  document.querySelectorAll('[data-mode]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var mode = btn.getAttribute('data-mode');
+      if(mode !== state.mode) setMode(mode);
+      renderAll();
+    });
+  });
+}
+
 function renderFila(){
+  if(isClosed()) return renderFilaClosed();
   var el = document.getElementById('screen-fila');
   var html = '';
 
   var totalPlayers = state.playerOrder.length;
 
+  if(canChangeMode()){
+    html += renderModeSelector();
+  }
   if(totalPlayers === 0){
     html += renderTeamSizeSetup();
   }
@@ -1083,6 +1498,7 @@ function renderFila(){
     el.innerHTML = html;
     bindFilaEvents();
     bindTeamSizeSetupEvents();
+    bindModeSelectorEvents();
     return;
   }
 
@@ -1170,6 +1586,182 @@ function bindFilaEvents(){
 }
 
 /* ==========================================================================
+   RENDER — Equipes (modo times fechados)
+   ========================================================================== */
+var CLOSED_COUNT_PRESETS = [2,3,4,6,8];
+
+function renderClosedTeamCard(t){
+  var cm = state.currentMatch;
+  var playing = !!(cm && (cm.teamA.teamId===t.id || cm.teamB.teamId===t.id));
+  var chips = t.players.map(function(id){
+    return '<span class="chip" data-player-chip="'+id+'">'+esc(playerName(id))+'</span>';
+  }).join('');
+  if(!chips) chips = '<span class="chip slot-empty">sem jogadores ainda</span>';
+  var n = t.players.length;
+  return '<div class="team-card'+(playing?' playing':'')+'" data-closed-team="'+t.id+'">'+
+    '<div class="team-card-head" style="gap:8px">'+
+      '<input type="text" class="team-name-input" data-team-name="'+t.id+'" placeholder="Nome da equipe" value="'+esc(t.name)+'" maxlength="40" autocomplete="off" />'+
+      (playing?'<span class="badge red">Em quadra</span>':'')+
+    '</div>'+
+    '<div class="player-chips">'+chips+'</div>'+
+    '<div class="mini-add-row">'+
+      '<input type="text" data-add-player-input="'+t.id+'" placeholder="Adicionar jogador..." autocomplete="off" />'+
+      '<button data-add-player-btn="'+t.id+'">Adicionar</button>'+
+    '</div>'+
+    '<div class="team-foot"><span class="waiting-note">'+n+' jogador'+(n===1?'':'es')+'</span>'+
+      '<button class="link-btn" data-remove-team="'+t.id+'">Remover equipe</button></div>'+
+    '</div>';
+}
+
+function renderFilaClosed(){
+  var el = document.getElementById('screen-fila');
+  var html = '';
+  if(canChangeMode()) html += renderModeSelector();
+
+  var chips = CLOSED_COUNT_PRESETS.map(function(n){
+    return '<button class="preset-chip'+(state.closedTeams.length===n?' active':'')+'" data-closed-count="'+n+'">'+n+'</button>';
+  }).join('');
+  html += '<div class="setup-card" style="margin-bottom:16px">'+
+    '<h2 class="section-title" style="margin-top:0">Quantas equipes?</h2>'+
+    '<div class="duration-row" style="margin:12px 0 4px">'+
+      '<button id="closed-count-minus">–</button>'+
+      '<div class="duration-display" id="closed-count-display">'+state.closedTeams.length+' <span>equipes</span></div>'+
+      '<button id="closed-count-plus">+</button>'+
+    '</div>'+
+    '<div class="preset-row" style="margin-top:8px">'+chips+'</div>'+
+    '<div class="waiting-note" style="text-align:center; margin-top:12px">Cada equipe tem nome e quantos jogadores quiser — os tamanhos podem ser diferentes. Toque no nome de um jogador pra mover, renomear ou remover.</div>'+
+    '</div>';
+
+  html += '<div class="warn-note" id="closed-dup-warning" style="margin:0 0 12px"></div>';
+
+  state.closedTeams.forEach(function(t){ html += renderClosedTeamCard(t); });
+
+  html += '<div class="waiting-note" id="closed-unnamed-note"></div>';
+  html += '<div class="cta-row"><button class="btn btn-primary" id="btn-go-start-match">Ir pra tela de partida →</button></div>';
+
+  el.innerHTML = html;
+  refreshClosedHints();
+  bindClosedFilaEvents();
+}
+
+// avisos que dependem dos nomes digitados — atualizados sem redesenhar a tela (pra não atrapalhar quem está digitando)
+function refreshClosedHints(){
+  var dups = duplicateClosedNames();
+  var warn = document.getElementById('closed-dup-warning');
+  if(warn){
+    warn.textContent = dups.length ? 'Tem equipes com o mesmo nome. Dê um nome diferente pra cada uma.' : '';
+    warn.style.display = dups.length ? '' : 'none';
+  }
+  var unnamed = state.closedTeams.filter(function(t){ return !t.name; }).length;
+  var note = document.getElementById('closed-unnamed-note');
+  if(note){
+    note.textContent = unnamed ? (unnamed+' equipe'+(unnamed===1?'':'s')+' sem nome — só dá pra escalar equipe com nome e jogadores.') : '';
+    note.style.display = unnamed ? '' : 'none';
+  }
+  document.querySelectorAll('[data-team-name]').forEach(function(inp){
+    var t = closedTeamById(inp.getAttribute('data-team-name'));
+    var bad = !!(t && t.name && dups.indexOf(normName(t.name)) > -1);
+    inp.classList.toggle('invalid', bad);
+  });
+}
+
+// remove equipe pedindo confirmação (e explicando quando não pode, porque a equipe já jogou)
+function requestRemoveClosedTeam(teamId){
+  var t = closedTeamById(teamId);
+  if(!t) return;
+  var sheet = document.getElementById('modal-sheet');
+  var label = t.name ? '“'+esc(t.name)+'”' : 'essa equipe';
+  if(teamHasMatches(teamId)){
+    sheet.innerHTML = modalHead('Não dá pra remover')+
+      '<div class="modal-confirm-text">'+label+' já tem partida registrada (ou em andamento), então não pode sair — senão o histórico e as estatísticas ficariam incompletos.</div>'+
+      '<button class="btn btn-secondary" id="team-remove-ok">Entendi</button>';
+    showModal();
+    document.getElementById('modal-close-btn').addEventListener('click', hideModal);
+    document.getElementById('team-remove-ok').addEventListener('click', hideModal);
+    return;
+  }
+  var n = t.players.length;
+  sheet.innerHTML = modalHead('Remover equipe')+
+    '<div class="modal-confirm-text">Remover '+label+(n ? ' e os '+n+' jogador'+(n===1?'':'es')+' dela' : '')+'?</div>'+
+    '<button class="btn btn-danger" id="team-remove-confirm">Remover</button>'+
+    '<div class="cta-row"><button class="btn btn-ghost" id="team-remove-cancel">Cancelar</button></div>';
+  showModal();
+  document.getElementById('modal-close-btn').addEventListener('click', hideModal);
+  document.getElementById('team-remove-cancel').addEventListener('click', hideModal);
+  document.getElementById('team-remove-confirm').addEventListener('click', function(){
+    removeClosedTeam(teamId);
+    hideModal();
+    renderAll();
+  });
+}
+
+function setClosedTeamCount(n){
+  n = Math.max(2, Math.min(16, n));
+  while(state.closedTeams.length < n) addClosedTeam();
+  if(state.closedTeams.length > n){
+    // só tira equipes vazias do fim; se a última tem jogadores ou já jogou, pede confirmação / explica
+    var last = state.closedTeams[state.closedTeams.length-1];
+    if(last.players.length===0 && !teamHasMatches(last.id)){
+      removeClosedTeam(last.id);
+      return setClosedTeamCount(n);
+    }
+    requestRemoveClosedTeam(last.id);
+    return false;
+  }
+  return true;
+}
+
+function bindClosedFilaEvents(){
+  bindModeSelectorEvents();
+  var minus = document.getElementById('closed-count-minus');
+  var plus = document.getElementById('closed-count-plus');
+  if(minus) minus.addEventListener('click', function(){
+    if(state.closedTeams.length <= 2) return;
+    if(setClosedTeamCount(state.closedTeams.length-1) !== false) renderAll();
+  });
+  if(plus) plus.addEventListener('click', function(){
+    setClosedTeamCount(state.closedTeams.length+1);
+    renderAll();
+  });
+  document.querySelectorAll('[data-closed-count]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var n = parseInt(btn.getAttribute('data-closed-count'), 10);
+      if(setClosedTeamCount(n) !== false) renderAll();
+    });
+  });
+
+  document.querySelectorAll('[data-team-name]').forEach(function(inp){
+    function save(){ setClosedTeamName(inp.getAttribute('data-team-name'), inp.value); refreshClosedHints(); }
+    inp.addEventListener('input', save);
+    inp.addEventListener('change', save);
+  });
+
+  document.querySelectorAll('[data-add-player-btn]').forEach(function(btn){
+    var teamId = btn.getAttribute('data-add-player-btn');
+    function doAdd(){
+      var inp = document.querySelector('[data-add-player-input="'+teamId+'"]');
+      if(!inp || !inp.value.trim()) return;
+      addClosedPlayer(teamId, inp.value);
+      renderAll();
+      var fresh = document.querySelector('[data-add-player-input="'+teamId+'"]');
+      if(fresh) fresh.focus();
+    }
+    btn.addEventListener('click', doAdd);
+    var inp = document.querySelector('[data-add-player-input="'+teamId+'"]');
+    if(inp) inp.addEventListener('keydown', function(e){ if(e.key==='Enter') doAdd(); });
+  });
+
+  document.querySelectorAll('[data-remove-team]').forEach(function(btn){
+    btn.addEventListener('click', function(){ requestRemoveClosedTeam(btn.getAttribute('data-remove-team')); });
+  });
+  document.querySelectorAll('[data-player-chip]').forEach(function(el){
+    el.addEventListener('click', function(){ openPlayerActionSheet(el.getAttribute('data-player-chip')); });
+  });
+  var goBtn = document.getElementById('btn-go-start-match');
+  if(goBtn) goBtn.addEventListener('click', function(){ switchTab('partida'); });
+}
+
+/* ==========================================================================
    RENDER — Partida
    ========================================================================== */
 var pendingDuration = 10;
@@ -1191,8 +1783,10 @@ function renderPartida(){
     html += renderScoreboard();
   } else {
     pulse.classList.add('hidden');
-    var m = getMatchup();
-    if(!m.ready){
+    var m = isClosed() ? null : getMatchup();
+    if(isClosed()){
+      html += renderPartidaClosedSetup();
+    } else if(!m.ready){
       html += '<div class="waiting-block"><span class="big">⏳</span>Ainda não dá pra começar.<br>Complete os dois próximos times na aba Fila.</div>';
     } else {
       html += '<h2 class="section-title">Próxima partida</h2>';
@@ -1216,6 +1810,56 @@ function renderPartida(){
   bindPartidaEvents();
 }
 
+// partida entre equipes fechadas: escolhe as duas equipes (qualquer uma contra qualquer uma) e quem joga de cada lado
+function renderPartidaClosedSetup(){
+  var teams = eligibleClosedTeams();
+  if(teams.length < 2){
+    return '<div class="waiting-block"><span class="big">⏳</span>Ainda não dá pra começar.<br>Cadastre pelo menos duas equipes, cada uma com nome e jogadores, na aba Equipes.</div>';
+  }
+  var p = state.closedPick;
+  // escolha que deixou de valer (equipe removida, renomeada pra vazio...) volta pra "selecionar"
+  var elig = {}; teams.forEach(function(t){ elig[t.id] = true; });
+  if(p.a && !elig[p.a]) p.a = null;
+  if(p.b && !elig[p.b]) p.b = null;
+
+  function options(selectedId, otherId){
+    return '<option value="">Selecionar equipe…</option>'+teams.map(function(t){
+      return '<option value="'+t.id+'"'+(t.id===selectedId?' selected':'')+(t.id===otherId?' disabled':'')+'>'+esc(t.name)+' ('+t.players.length+')</option>';
+    }).join('');
+  }
+  var html = '<h2 class="section-title">Quem joga?</h2><div class="setup-card">';
+  html += '<label class="field-label" style="margin-top:0">Equipe 1</label><select class="field-select" id="pick-team-a">'+options(p.a, p.b)+'</select>';
+  html += '<label class="field-label">Equipe 2</label><select class="field-select" id="pick-team-b">'+options(p.b, p.a)+'</select>';
+
+  function lineupBlock(side){
+    var teamId = side==='A' ? p.a : p.b;
+    var t = teamId ? closedTeamById(teamId) : null;
+    if(!t) return '';
+    var out = (side==='A' ? p.outA : p.outB) || [];
+    var chips = t.players.map(function(id){
+      var off = out.indexOf(id) > -1;
+      return '<span class="chip toggle'+(off?' off':'')+'" data-lineup-toggle="'+side+':'+id+'">'+esc(playerName(id))+'</span>';
+    }).join('');
+    return '<div class="lineup"><div class="lineup-title">'+esc(t.name)+' — quem joga ('+closedLineup(side).length+' de '+t.players.length+')</div><div class="player-chips">'+chips+'</div></div>';
+  }
+  html += lineupBlock('A') + lineupBlock('B');
+  if(p.a && p.b){
+    html += '<div class="waiting-note">Toque num nome pra tirar da escalação (quem não veio). Quem entrar depois e marcar gol ou assistência é incluído automaticamente.</div>';
+  }
+
+  var problem = closedPickProblem();
+  if(problem && (p.a || p.b)) html += '<div class="warn-note">'+esc(problem)+'</div>';
+
+  html += '<div class="duration-row">'+
+    '<button id="dur-minus">–</button>'+
+    '<div class="duration-display" id="dur-display">'+pendingDuration+' <span>min</span></div>'+
+    '<button id="dur-plus">+</button>'+
+    '</div>';
+  html += '<button class="btn btn-primary" id="btn-start-match"'+(problem?' disabled':'')+'>Iniciar partida</button>';
+  html += '</div>';
+  return html;
+}
+
 function renderScoreboard(){
   var m = state.currentMatch;
   var editing = !!m.reopenedForEdit;
@@ -1226,9 +1870,9 @@ function renderScoreboard(){
   }
   html += '<div class="'+timerCls+'" id="timer-text">'+fmtTime(m.remainingSec)+'</div>';
   html += '<div class="score-row">'+
-    '<div class="score-team '+m.teamA.color+'"><div class="tname">'+colorLabel(m.teamA.color)+'</div><div class="tscore" id="score-a">'+m.scoreA+'</div></div>'+
+    '<div class="score-team '+m.teamA.color+'"><div class="tname">'+esc(sideLabel(m.teamA))+'</div><div class="tscore" id="score-a">'+m.scoreA+'</div></div>'+
     '<div class="score-sep">×</div>'+
-    '<div class="score-team '+m.teamB.color+'"><div class="tname">'+colorLabel(m.teamB.color)+'</div><div class="tscore" id="score-b">'+m.scoreB+'</div></div>'+
+    '<div class="score-team '+m.teamB.color+'"><div class="tname">'+esc(sideLabel(m.teamB))+'</div><div class="tscore" id="score-b">'+m.scoreB+'</div></div>'+
     '</div>';
 
   if(editing){
@@ -1265,8 +1909,8 @@ function renderScoreboard(){
 }
 
 function renderDrawChoice(m){
-  return '<button class="result-btn" data-draw-stay="A">'+colorLabel(m.teamA.color)+' fica</button>'+
-    '<button class="result-btn" data-draw-stay="B">'+colorLabel(m.teamB.color)+' fica</button>'+
+  return '<button class="result-btn" data-draw-stay="A">'+esc(sideLabel(m.teamA))+' fica</button>'+
+    '<button class="result-btn" data-draw-stay="B">'+esc(sideLabel(m.teamB))+' fica</button>'+
     '<button class="result-btn" style="color:var(--text-muted); font-weight:500;" data-draw-stay="none">Nenhum — os dois voltam pra fila</button>';
 }
 
@@ -1280,6 +1924,31 @@ function bindPartidaEvents(){
   if(plus) plus.addEventListener('click', function(){
     pendingDuration = Math.min(90, pendingDuration+1);
     document.getElementById('dur-display').innerHTML = pendingDuration+' <span>min</span>';
+  });
+  var pickA = document.getElementById('pick-team-a');
+  var pickB = document.getElementById('pick-team-b');
+  if(pickA) pickA.addEventListener('change', function(){
+    state.closedPick.a = pickA.value || null;
+    state.closedPick.outA = []; // trocou de equipe: escalação volta a ser o elenco inteiro
+    saveState();
+    renderPartida();
+  });
+  if(pickB) pickB.addEventListener('change', function(){
+    state.closedPick.b = pickB.value || null;
+    state.closedPick.outB = [];
+    saveState();
+    renderPartida();
+  });
+  document.querySelectorAll('[data-lineup-toggle]').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      var parts = chip.getAttribute('data-lineup-toggle').split(':');
+      var key = parts[0]==='A' ? 'outA' : 'outB';
+      var out = state.closedPick[key] || (state.closedPick[key] = []);
+      var i = out.indexOf(parts[1]);
+      if(i>-1) out.splice(i,1); else out.push(parts[1]);
+      saveState();
+      renderPartida();
+    });
   });
   var startBtn = document.getElementById('btn-start-match');
   if(startBtn) startBtn.addEventListener('click', function(){
@@ -1425,12 +2094,12 @@ function renderGoalModalStep(){
   if(!goalDraft.team){
     html += modalHead('Quem fez o gol?');
     html += '<div class="pick-grid">'+
-      '<button class="pick-btn '+(m.teamA.color==='verde'?'team-b':'team-a')+'" data-pick-team="A">'+colorLabel(m.teamA.color)+'</button>'+
-      '<button class="pick-btn '+(m.teamB.color==='verde'?'team-b':'team-a')+'" data-pick-team="B">'+colorLabel(m.teamB.color)+'</button>'+
+      '<button class="pick-btn '+(m.teamA.color==='verde'?'team-b':'team-a')+'" data-pick-team="A">'+esc(sideLabel(m.teamA))+'</button>'+
+      '<button class="pick-btn '+(m.teamB.color==='verde'?'team-b':'team-a')+'" data-pick-team="B">'+esc(sideLabel(m.teamB))+'</button>'+
       '</div>';
   } else if(!goalDraft.scorerId){
     var team = goalDraft.team==='A'?m.teamA:m.teamB;
-    html += modalHead('Quem marcou? ('+colorLabel(team.color)+')');
+    html += modalHead('Quem marcou? ('+esc(sideLabel(team))+')');
     html += '<div class="pick-grid">';
     team.players.forEach(function(id){
       html += '<button class="pick-btn" data-pick-scorer="'+id+'">'+esc(playerName(id))+'</button>';
@@ -1528,10 +2197,10 @@ function handlePlayerRemovalDuringMatch(playerId){
 }
 
 function showSubstitutionPrompt(subId, removedName, teamKey){
-  var teamColor = state.currentMatch ? state.currentMatch[teamKey].color : null;
+  var teamLabel = state.currentMatch ? sideLabel(state.currentMatch[teamKey]) : 'Time';
   var sheet = document.getElementById('modal-sheet');
   sheet.innerHTML = modalHead('Substituição')+
-    '<div class="modal-confirm-text">'+esc(playerName(subId))+' entrou no '+colorLabel(teamColor)+' no lugar de '+esc(removedName)+'. Ele fica nesse time dali pra frente, ou mantém a posição dele na fila (volta pra frente depois dessa partida)?</div>'+
+    '<div class="modal-confirm-text">'+esc(playerName(subId))+' entrou no '+esc(teamLabel)+' no lugar de '+esc(removedName)+'. Ele fica nesse time dali pra frente, ou mantém a posição dele na fila (volta pra frente depois dessa partida)?</div>'+
     '<button class="btn btn-primary" id="sub-stays-team">Fica nesse time</button>'+
     '<div class="cta-row"><button class="btn btn-secondary" id="sub-keeps-spot">Mantém a posição na fila</button></div>';
   showModal();
@@ -1610,7 +2279,9 @@ function openPlayerActionSheet(playerId){
   var sheet = document.getElementById('modal-sheet');
   var html = modalHead(playerName(playerId));
   html += '<div class="pick-grid">';
-  if(!p.fixedGoalkeeper){
+  if(isClosed()){
+    if(state.closedTeams.length > 1) html += '<button class="pick-btn" id="action-move">🔀 Mover pra outra equipe</button>';
+  } else if(!p.fixedGoalkeeper){
     html += '<button class="pick-btn" id="action-swap">🔀 Trocar de lugar</button>';
     html += '<button class="pick-btn" id="action-goalkeeper">🧤 Virar goleiro fixo</button>';
   }
@@ -1623,6 +2294,8 @@ function openPlayerActionSheet(playerId){
   if(closeBtn) closeBtn.addEventListener('click', hideModal);
   var swapBtn = document.getElementById('action-swap');
   if(swapBtn) swapBtn.addEventListener('click', function(){ openSwapTargetPicker(playerId); });
+  var moveBtn = document.getElementById('action-move');
+  if(moveBtn) moveBtn.addEventListener('click', function(){ openMoveTeamPicker(playerId); });
   var gkBtn = document.getElementById('action-goalkeeper');
   if(gkBtn) gkBtn.addEventListener('click', function(){
     hideModal();
@@ -1657,6 +2330,28 @@ function convertToGoalkeeper(playerId){
   if(state.goalkeeperOrder.indexOf(playerId)===-1) state.goalkeeperOrder.push(playerId);
   saveState();
   renderAll();
+}
+
+// times fechados: leva o jogador pra outra equipe (as estatísticas dele ficam como estão)
+function openMoveTeamPicker(playerId){
+  var sheet = document.getElementById('modal-sheet');
+  var from = closedTeamOfPlayer(playerId);
+  var html = modalHead('Mover '+esc(playerName(playerId))+' pra qual equipe?');
+  html += '<div class="pick-grid">';
+  state.closedTeams.forEach(function(t){
+    if(from && t.id===from.id) return;
+    html += '<button class="pick-btn" data-move-target="'+t.id+'">'+esc(t.name || 'Equipe sem nome')+'</button>';
+  });
+  html += '</div>';
+  sheet.innerHTML = html;
+  document.getElementById('modal-close-btn').addEventListener('click', hideModal);
+  document.querySelectorAll('[data-move-target]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      moveClosedPlayer(playerId, btn.getAttribute('data-move-target'));
+      hideModal();
+      renderAll();
+    });
+  });
 }
 
 function openSwapTargetPicker(playerId){
@@ -1708,6 +2403,11 @@ function openRenameEditor(playerId){
 
 // remove um jogador de onde quer que ele esteja (fila, campeão, em quadra ou goleiro fixo)
 function performRemovePlayer(playerId){
+  if(isClosed()){
+    removeClosedPlayer(playerId);
+    renderAll();
+    return;
+  }
   var p = state.players[playerId];
   if(p && p.fixedGoalkeeper){
     removeGoalkeeper(playerId);
@@ -1750,13 +2450,14 @@ document.getElementById('modal-overlay').addEventListener('click', function(e){
    ========================================================================== */
 function renderStats(){
   var el = document.getElementById('screen-stats');
-  var ids = state.playerOrder.concat(state.goalkeeperOrder).filter(function(id){ return !!state.players[id]; });
+  var ids = statsIds();
   if(!ids.length){
     el.innerHTML = '<div class="empty-state"><span class="big">📊</span>Nenhuma estatística ainda.<br>Comece uma partida na aba Partida.</div>';
     return;
   }
-  var totalGoals=0, totalMatches=state.matchHistory.length;
-  ids.forEach(function(id){ totalGoals += state.players[id].goals; });
+  // total de gols = soma dos placares (inclui gols contra, que não entram no "G" de ninguém)
+  var totalGoals = 0, totalMatches = state.matchHistory.length;
+  state.matchHistory.forEach(function(m){ totalGoals += (m.scoreA||0) + (m.scoreB||0); });
 
   var sorted = ids.slice().sort(function(a,b){
     var pa=state.players[a], pb=state.players[b];
@@ -1776,6 +2477,10 @@ function renderStats(){
   sorted.forEach(function(id, i){
     var p = state.players[id];
     var name = esc(p.name) + (p.fixedGoalkeeper ? ' 🧤' : '');
+    if(isClosed()){
+      var t = closedTeamOfPlayer(id);
+      if(t && t.name) name += '<span class="sub-team">'+esc(t.name)+'</span>';
+    }
     html += '<tr><td class="'+(i===0&&p.goals>0?'rank-gold':'')+'">'+name+'</td>'+
       '<td class="num">'+p.games+'</td><td class="num">'+p.goals+'</td><td class="num">'+p.assists+'</td><td class="num">'+p.wins+'</td></tr>';
   });
@@ -1783,39 +2488,57 @@ function renderStats(){
 
   if(state.matchHistory.length){
     html += '<h2 class="section-title">Histórico de partidas</h2>';
-    var editable = canEditLastMatch();
-    state.matchHistory.slice().reverse().forEach(function(m, i){
-      var colA = m.teamAColor, colB = m.teamBColor;
-      var emojiA = colA==='verde' ? '🟢' : '⚫';
-      var emojiB = colB==='verde' ? '🟢' : '⚫';
-      var goalsLine = m.goals.map(function(g){
-        return (g.team==='A'?emojiA:emojiB)+' '+esc(g.scorer)+(g.ownGoal?' (contra)':'')+(g.assist?' (assist. '+esc(g.assist)+')':'');
+    var lastIdx = state.matchHistory.length - 1;
+    for(var idx = lastIdx; idx >= 0; idx--){
+      var m = state.matchHistory[idx];
+      var emojiA = sideEmoji(m.teamAColor), emojiB = sideEmoji(m.teamBColor);
+      var nameA = entrySideLabel(m,'A'), nameB = entrySideLabel(m,'B');
+      var closedEntry = m.mode==='closed';
+      var goalsLine = (m.goals||[]).map(function(g){
+        return (g.team==='A'?emojiA:emojiB)+' '+esc(goalScorerName(g))+(g.ownGoal?' (contra)':'')+(goalAssistName(g)?' (assist. '+esc(goalAssistName(g))+')':'');
       }).join(' · ');
       var resultLabel =
-        m.result==='draw-stay-A' ? 'Empate — '+colorLabel(colA)+' ficou' :
-        m.result==='draw-stay-B' ? 'Empate — '+colorLabel(colB)+' ficou' :
-        (m.result==='draw-both-out' || m.result==='draw') ? 'Empate — os dois saíram' : '';
-      var canEditThis = editable && i===0;
-      html += '<div class="history-item'+(canEditThis?' editable':'')+'">'+
-        '<div class="h-top"><span>'+colorLabel(colA)+'</span><span>'+m.scoreA+' × '+m.scoreB+'</span><span>'+colorLabel(colB)+'</span></div>'+
+        m.result==='draw-stay-A' ? 'Empate — '+nameA+' ficou' :
+        m.result==='draw-stay-B' ? 'Empate — '+nameB+' ficou' :
+        m.result==='draw-both-out' ? 'Empate — os dois saíram' :
+        m.result==='draw' ? (closedEntry ? 'Empate' : 'Empate — os dois saíram') :
+        m.result==='draw-edited' ? 'Empate (placar corrigido)' : '';
+      var lastEditable = idx===lastIdx && canEditLastMatch();
+      var btns = '';
+      if(canEditEntry(m)) btns += '<button class="btn btn-secondary btn-sm" data-edit-match="'+idx+'">✏️ Editar partida</button>';
+      if(lastEditable) btns += '<button class="btn btn-ghost btn-sm" data-edit-last-match="1">↩️ Reabrir e refazer a fila</button>';
+      html += '<div class="history-item'+(lastEditable?' editable':'')+'" data-history-index="'+idx+'">'+
+        '<div class="h-top"><span>'+(closedEntry?emojiA+' ':'')+esc(nameA)+'</span><span>'+m.scoreA+' × '+m.scoreB+'</span><span>'+esc(nameB)+(closedEntry?' '+emojiB:'')+'</span></div>'+
         (resultLabel? '<div class="h-goals" style="color:var(--text)">'+resultLabel+'</div>' : '')+
         (goalsLine? '<div class="h-goals">'+goalsLine+'</div>' : '<div class="h-goals">Sem gols.</div>')+
-        (canEditThis? '<button class="btn btn-secondary btn-sm" style="margin-top:10px" data-edit-last-match="1">✏️ Corrigir esta partida</button>' : '')+
+        (btns? '<div class="match-actions-inline">'+btns+'</div>' : '')+
         '</div>';
-    });
+    }
   }
 
   el.innerHTML = html;
   bindStatsEvents();
 }
 
+// nomes de quem marcou/assistiu: sempre o nome atual do jogador (se ele foi renomeado, o histórico acompanha)
+function goalScorerName(g){
+  return (g.scorerId && state.players[g.scorerId]) ? state.players[g.scorerId].name : (g.scorer || '???');
+}
+function goalAssistName(g){
+  if(!g.assistId && !g.assist) return null;
+  return (g.assistId && state.players[g.assistId]) ? state.players[g.assistId].name : (g.assist || null);
+}
+
 function bindStatsEvents(){
+  document.querySelectorAll('[data-edit-match]').forEach(function(btn){
+    btn.addEventListener('click', function(){ openEditMatch(parseInt(btn.getAttribute('data-edit-match'), 10)); });
+  });
   var editBtn = document.querySelector('[data-edit-last-match]');
   if(!editBtn) return;
   editBtn.addEventListener('click', function(){
     var sheet = document.getElementById('modal-sheet');
-    sheet.innerHTML = modalHead('Corrigir última partida')+
-      '<div class="modal-confirm-text">Isso reabre a última partida do jeito que ela estava, com os gols que tinha na hora. Corrija com o botão ⚽ Gol e a lixeira de cada gol, e conclua de novo quando estiver certo.</div>'+
+    sheet.innerHTML = modalHead('Refazer a fila da última partida')+
+      '<div class="modal-confirm-text">Isso reabre a última partida do jeito que ela estava, com os gols que tinha na hora. Corrija com o botão ⚽ Gol e a lixeira de cada gol, e conclua de novo — a fila é refeita com o resultado novo. Se só o gol/assistência estava errado, use “Editar partida”, que é mais simples.</div>'+
       '<button class="btn btn-primary" id="confirm-edit-match">Reabrir partida</button>'+
       '<div class="cta-row"><button class="btn btn-ghost" id="cancel-edit-match">Cancelar</button></div>';
     showModal();
@@ -1830,9 +2553,302 @@ function bindStatsEvents(){
 }
 
 /* ==========================================================================
+   EDITAR QUALQUER PARTIDA DO HISTÓRICO — corrige gols (quem marcou, assistência, equipe), adiciona ou remove
+   gols, e (times fechados) quem jogou. As estatísticas são desfeitas e refeitas, então tudo continua batendo.
+   ========================================================================== */
+var editDraft = null;
+
+// só dá pra editar partida com ids (as gravadas por versões bem antigas, sem como identificar os nomes, ficam só pra leitura)
+function canEditEntry(e){
+  if(!e || !e.teamAIds || !e.teamBIds) return false;
+  return (e.goals||[]).every(function(g){ return !!g.scorerId; });
+}
+
+function openEditMatch(index){
+  var e = state.matchHistory[index];
+  if(!canEditEntry(e)) return;
+  editDraft = {
+    index: index,
+    goals: e.goals.map(function(g){
+      return { team:g.team, scorerId:g.scorerId, assistId:g.assistId||'', remainingAtGoal:(g.remainingAtGoal==null?null:g.remainingAtGoal) };
+    }),
+    partsA: e.teamAIds.slice(),
+    partsB: e.teamBIds.slice(),
+    error: ''
+  };
+  renderEditMatchModal();
+  showModal();
+}
+
+function editCtx(e){
+  var closed = e.mode==='closed';
+  return {
+    partsA: editDraft.partsA, partsB: editDraft.partsB,
+    rosterA: closed ? closedRoster(e.teamAId) : [],
+    rosterB: closed ? closedRoster(e.teamBId) : []
+  };
+}
+
+// <option>s de jogadores agrupadas: o lado que recebe o gol, o adversário e os outros (goleiros fixos, quem saiu...)
+function editPlayerOptions(e, team, selectedId, blankLabel){
+  var closed = e.mode==='closed';
+  var ownParts = team==='A' ? editDraft.partsA : editDraft.partsB;
+  var oppParts = team==='A' ? editDraft.partsB : editDraft.partsA;
+  var ownName = entrySideLabel(e, team), oppName = entrySideLabel(e, team==='A'?'B':'A');
+  function opt(id){
+    var pl = state.players[id];
+    if(!pl) return '';
+    return '<option value="'+id+'"'+(id===selectedId?' selected':'')+'>'+esc(pl.name)+(pl.fixedGoalkeeper?' 🧤':'')+'</option>';
+  }
+  var html = '<option value=""'+(!selectedId?' selected':'')+'>'+blankLabel+'</option>';
+  html += '<optgroup label="'+esc(ownName)+'">'+ownParts.map(opt).join('')+'</optgroup>';
+  html += '<optgroup label="'+esc(oppName)+' (adversário)">'+oppParts.map(opt).join('')+'</optgroup>';
+  var inMatch = ownParts.concat(oppParts);
+  var others = statsIds().filter(function(id){ return inMatch.indexOf(id)===-1; });
+  if(others.length) html += '<optgroup label="Outros jogadores">'+others.map(opt).join('')+'</optgroup>';
+  return html;
+}
+
+function renderEditMatchModal(){
+  var d = editDraft;
+  var e = state.matchHistory[d.index];
+  var sheet = document.getElementById('modal-sheet');
+  var prevScroll = sheet.scrollTop;
+  var closed = e.mode==='closed';
+  var ctx = editCtx(e);
+  var nameA = entrySideLabel(e,'A'), nameB = entrySideLabel(e,'B');
+  var scoreA = d.goals.filter(function(g){ return g.team==='A'; }).length;
+  var scoreB = d.goals.filter(function(g){ return g.team==='B'; }).length;
+
+  var html = modalHead('Editar partida');
+  html += '<div class="edit-score"><span>'+sideEmoji(e.teamAColor)+' '+esc(nameA)+'</span><strong id="edit-score-text">'+scoreA+' × '+scoreB+'</strong><span>'+esc(nameB)+' '+sideEmoji(e.teamBColor)+'</span></div>';
+  html += '<div class="waiting-note" style="margin-bottom:12px">O placar acompanha os gols. Ao salvar, as estatísticas de todo mundo são refeitas.</div>';
+
+  if(closed){
+    [['A', nameA, d.partsA, closedRoster(e.teamAId)], ['B', nameB, d.partsB, closedRoster(e.teamBId)]].forEach(function(row){
+      var side = row[0], parts = row[2];
+      var pool = row[3].concat(parts.filter(function(id){ return row[3].indexOf(id)===-1; })); // elenco + quem jogou mas já saiu do elenco
+      var chips = pool.map(function(id){
+        var off = parts.indexOf(id)===-1;
+        return '<span class="chip toggle'+(off?' off':'')+'" data-edit-lineup="'+side+':'+id+'">'+esc(playerName(id))+'</span>';
+      }).join('');
+      html += '<div class="lineup"><div class="lineup-title">'+esc(row[1])+' — quem jogou ('+parts.length+')</div><div class="player-chips">'+chips+'</div></div>';
+    });
+  } else {
+    html += '<div class="waiting-note">Jogaram — '+esc(nameA)+': '+d.partsA.map(playerName).map(esc).join(', ')+'.<br>'+esc(nameB)+': '+d.partsB.map(playerName).map(esc).join(', ')+'.</div>';
+  }
+
+  html += '<h2 class="section-title">Gols</h2>';
+  if(!d.goals.length) html += '<div class="waiting-note" style="margin:0 0 10px">Sem gols. Use “Adicionar gol” pra registrar.</div>';
+  d.goals.forEach(function(g, i){
+    var own = g.scorerId ? isOwnGoal(ctx, g.team, g.scorerId) : false;
+    html += '<div class="edit-goal">'+
+      '<div class="edit-goal-head"><span>Gol '+(i+1)+(own?' · contra':'')+'</span><button class="edit-goal-del" data-eg-del="'+i+'">✕ Remover</button></div>'+
+      '<label class="field-label">Gol pra</label>'+
+      '<select class="field-select" data-eg-team="'+i+'"><option value="A"'+(g.team==='A'?' selected':'')+'>'+esc(nameA)+'</option><option value="B"'+(g.team==='B'?' selected':'')+'>'+esc(nameB)+'</option></select>'+
+      '<label class="field-label">Quem marcou</label>'+
+      '<select class="field-select" data-eg-scorer="'+i+'">'+editPlayerOptions(e, g.team, g.scorerId, 'Selecionar jogador…')+'</select>'+
+      '<label class="field-label">Assistência</label>'+
+      '<select class="field-select" data-eg-assist="'+i+'">'+editPlayerOptions(e, g.team, g.assistId, 'Sem assistência')+'</select>'+
+      '</div>';
+  });
+  html += '<button class="btn btn-secondary btn-sm" id="eg-add">＋ Adicionar gol</button>';
+  if(d.error) html += '<div class="edit-error" id="edit-error">'+esc(d.error)+'</div>';
+  html += '<div class="cta-row"><button class="btn btn-primary" id="eg-save">Salvar correção</button></div>';
+  html += '<div class="cta-row"><button class="btn btn-ghost" id="eg-cancel">Cancelar</button></div>';
+  sheet.innerHTML = html;
+  sheet.scrollTop = prevScroll;
+  bindEditMatchEvents();
+}
+
+function bindEditMatchEvents(){
+  var d = editDraft;
+  document.getElementById('modal-close-btn').addEventListener('click', hideModal);
+  document.getElementById('eg-cancel').addEventListener('click', hideModal);
+  document.querySelectorAll('[data-eg-team]').forEach(function(sel){
+    sel.addEventListener('change', function(){
+      d.goals[parseInt(sel.getAttribute('data-eg-team'),10)].team = sel.value;
+      d.error = '';
+      renderEditMatchModal();
+    });
+  });
+  document.querySelectorAll('[data-eg-scorer]').forEach(function(sel){
+    sel.addEventListener('change', function(){
+      d.goals[parseInt(sel.getAttribute('data-eg-scorer'),10)].scorerId = sel.value;
+      d.error = '';
+      renderEditMatchModal();
+    });
+  });
+  document.querySelectorAll('[data-eg-assist]').forEach(function(sel){
+    sel.addEventListener('change', function(){
+      d.goals[parseInt(sel.getAttribute('data-eg-assist'),10)].assistId = sel.value;
+      d.error = '';
+    });
+  });
+  document.querySelectorAll('[data-eg-del]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      d.goals.splice(parseInt(btn.getAttribute('data-eg-del'),10), 1);
+      d.error = '';
+      renderEditMatchModal();
+    });
+  });
+  document.getElementById('eg-add').addEventListener('click', function(){
+    d.goals.push({ team:'A', scorerId:'', assistId:'', remainingAtGoal:null });
+    d.error = '';
+    renderEditMatchModal();
+    var sheet = document.getElementById('modal-sheet');
+    sheet.scrollTop = sheet.scrollHeight; // leva até o gol novo
+  });
+  document.querySelectorAll('[data-edit-lineup]').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      var parts = chip.getAttribute('data-edit-lineup').split(':');
+      var arr = parts[0]==='A' ? d.partsA : d.partsB;
+      var i = arr.indexOf(parts[1]);
+      if(i>-1){
+        var used = d.goals.some(function(g){ return g.scorerId===parts[1] || g.assistId===parts[1]; });
+        if(used){
+          d.error = playerName(parts[1])+' tem gol ou assistência nessa partida — tire o gol antes de tirar ele de quem jogou.';
+        } else {
+          arr.splice(i,1); d.error = '';
+        }
+      } else { arr.push(parts[1]); d.error = ''; }
+      renderEditMatchModal();
+    });
+  });
+  document.getElementById('eg-save').addEventListener('click', saveEditedMatch);
+}
+
+function matchDirection(a, b){ return a>b ? 1 : (a<b ? -1 : 0); }
+
+// resultado gravado depois de editar: pelo placar. Empate que já era empate mantém o rótulo original (quem ficou).
+function resultAfterEdit(old, scoreA, scoreB, closed){
+  var dir = matchDirection(scoreA, scoreB);
+  if(dir>0) return 'A';
+  if(dir<0) return 'B';
+  if(String(old.result).indexOf('draw')===0) return old.result;
+  return closed ? 'draw' : 'draw-edited';
+}
+
+// goals do histórico -> goals de uma partida em andamento (usado ao reabrir a última partida já editada)
+function entryGoalsToMatchGoals(goals){
+  return goals.map(function(g){
+    return { team:g.team, scorerId:g.scorerId, assistId:g.assistId||null, ownGoal:!!g.ownGoal, remainingAtGoal:(g.remainingAtGoal==null?0:g.remainingAtGoal) };
+  });
+}
+
+// o snapshot de "reabrir última partida" tem uma cópia das estatísticas e do histórico de antes da última partida;
+// uma edição feita depois dele precisa entrar lá também, senão reabrir desfaria a correção sem ninguém perceber
+function patchSnapshotAfterEdit(index, oldEntry, newEntry){
+  var snap = state.lastMatchSnapshot;
+  if(!snap) return;
+  if(index < snap.matchHistory.length){
+    applyEntryStats(oldEntry, snap.players, -1);
+    applyEntryStats(newEntry, snap.players, +1);
+    snap.matchHistory[index] = JSON.parse(JSON.stringify(newEntry));
+  } else if(index === snap.matchHistory.length && snap.currentMatch){
+    snap.currentMatch.goals = entryGoalsToMatchGoals(newEntry.goals);
+    snap.currentMatch.scoreA = newEntry.scoreA;
+    snap.currentMatch.scoreB = newEntry.scoreB;
+  }
+}
+
+function saveEditedMatch(){
+  var d = editDraft;
+  var idx = d.index;
+  var old = state.matchHistory[idx];
+  if(!old) return;
+  var closed = old.mode==='closed';
+
+  for(var i=0;i<d.goals.length;i++){
+    var g = d.goals[i];
+    if(!g.scorerId){ d.error = 'Escolha quem marcou o gol '+(i+1)+', ou remova esse gol.'; renderEditMatchModal(); return; }
+    if(g.assistId && g.assistId===g.scorerId){ d.error = 'No gol '+(i+1)+', quem marcou não pode ser o mesmo da assistência.'; renderEditMatchModal(); return; }
+  }
+
+  var ctx = {
+    partsA: d.partsA.slice(), partsB: d.partsB.slice(),
+    rosterA: closed ? closedRoster(old.teamAId) : [],
+    rosterB: closed ? closedRoster(old.teamBId) : []
+  };
+  var goals = d.goals.map(function(g){
+    return { team:g.team, scorerId:g.scorerId, assistId:g.assistId||null, remainingAtGoal:g.remainingAtGoal };
+  });
+  goals.forEach(function(g){ g.ownGoal = isOwnGoal(ctx, g.team, g.scorerId); });
+  if(closed) normalizeParticipants(ctx, goals);
+
+  var oldCopy = JSON.parse(JSON.stringify(old));
+  var ne = JSON.parse(JSON.stringify(old));
+  ne.version = 2;
+  ne.teamAIds = ctx.partsA; ne.teamBIds = ctx.partsB;
+  ne.teamANames = ctx.partsA.map(playerName); ne.teamBNames = ctx.partsB.map(playerName);
+  ne.goals = goals.map(function(g){
+    return {
+      team:g.team, scorerId:g.scorerId, assistId:g.assistId, ownGoal:g.ownGoal, remainingAtGoal:g.remainingAtGoal,
+      scorer: playerName(g.scorerId), assist: g.assistId ? playerName(g.assistId) : null
+    };
+  });
+  ne.scoreA = goals.filter(function(g){ return g.team==='A'; }).length;
+  ne.scoreB = goals.filter(function(g){ return g.team==='B'; }).length;
+  ne.result = resultAfterEdit(oldCopy, ne.scoreA, ne.scoreB, closed);
+  ne.edited = true;
+
+  applyEntryStats(oldCopy, state.players, -1);
+  applyEntryStats(ne, state.players, +1);
+  state.matchHistory[idx] = ne;
+  var wasLast = idx === state.matchHistory.length - 1;
+  var canRedo = wasLast && canEditLastMatch();
+  patchSnapshotAfterEdit(idx, oldCopy, ne);
+  saveState();
+  editDraft = null;
+
+  var outcomeChanged = matchDirection(oldCopy.scoreA, oldCopy.scoreB) !== matchDirection(ne.scoreA, ne.scoreB);
+  if(outcomeChanged && !closed){
+    showOutcomeChangedPrompt(ne, canRedo);
+  } else {
+    hideModal();
+    renderAll();
+  }
+}
+
+function describeOutcome(e){
+  if(e.scoreA===e.scoreB) return 'empate';
+  return 'vitória do '+entrySideLabel(e, e.scoreA>e.scoreB ? 'A' : 'B');
+}
+
+// o resultado mudou (ex.: era empate e virou vitória): a correção já está no histórico e nas estatísticas,
+// mas quem sobe/desce da fila depende do resultado — na última partida dá pra refazer isso, nas antigas a fila já andou
+function showOutcomeChangedPrompt(entry, canRedo){
+  renderAll();
+  var sheet = document.getElementById('modal-sheet');
+  var html = modalHead('Resultado mudou');
+  html += '<div class="modal-confirm-text">Com a correção, essa partida passa a ser '+esc(describeOutcome(entry))+' ('+entry.scoreA+' × '+entry.scoreB+'). O histórico e as estatísticas já foram atualizados.';
+  if(canRedo){
+    html += '<br><br>Quer refazer a fila com o resultado novo? Se sim, a partida é reaberta e concluída de novo (se for empate, você escolhe quem fica).';
+    html += '</div><button class="btn btn-primary" id="outcome-redo">Refazer a fila</button>'+
+      '<div class="cta-row"><button class="btn btn-ghost" id="outcome-keep">Manter a fila como está</button></div>';
+  } else {
+    html += '<br><br>A fila não muda, porque já teve partidas depois dessa.';
+    html += '</div><button class="btn btn-secondary" id="outcome-keep">Entendi</button>';
+  }
+  sheet.innerHTML = html;
+  showModal();
+  document.getElementById('modal-close-btn').addEventListener('click', hideModal);
+  document.getElementById('outcome-keep').addEventListener('click', hideModal);
+  var redo = document.getElementById('outcome-redo');
+  if(redo) redo.addEventListener('click', function(){
+    hideModal();
+    editLastMatch();                                   // volta pra logo antes do fim, já com os gols corrigidos
+    if(state.currentMatch) delete state.currentMatch.reopenedForEdit;
+    resolveMatchEnd();                                 // vitória: refaz a fila sozinho; empate: pergunta quem fica
+  });
+}
+
+/* ==========================================================================
    RENDER ALL
    ========================================================================== */
 function renderAll(){
+  var tabLabel = document.querySelector('[data-tab="fila"] .tab-label');
+  if(tabLabel) tabLabel.textContent = isClosed() ? 'Equipes' : 'Fila';
   renderFila();
   renderPartida();
   renderStats();

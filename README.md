@@ -2,7 +2,30 @@
 
 App de página única (`index.html`, sem build, sem backend, sem banco de dados) pra organizar os times do futsal de terça: cadastro por ordem de chegada, cronômetro de partida, gol + assistência, e estatísticas no fim da noite.
 
-## Jogadores por time
+## Dois modos de jogo
+
+Na primeira tela (sessão zerada) você escolhe **como vai ser o fut**. A escolha trava assim que o primeiro jogador (ou equipe com jogador) entra; pra mudar, é só encerrar a sessão (🗑).
+
+- **🔁 Fila por chegada** (padrão): o fut de terça de sempre — times montados pela ordem de chegada, quem ganha fica. Tudo que está descrito nas seções abaixo vale pra esse modo.
+- **🛡️ Times fechados**: pra campeonato ou amistoso, em que cada equipe já vem pronta. Veja a próxima seção.
+
+## Modo "Times fechados"
+
+A aba **Fila** passa a se chamar **Equipes**:
+
+1. Escolha **quantas equipes** (botões − / + ou atalhos 2, 3, 4, 6, 8) — abre um card pra cada uma.
+2. Cada equipe **precisa de um nome** (campo no topo do card) e tem o seu próprio campo pra **adicionar jogadores**. Pode ter **quantos jogadores quiser e tamanhos diferentes** entre as equipes (ex.: uma com 6, outra com 3, outra com 9), porque a ideia é ter reservas que vão revezando.
+3. Equipes com o mesmo nome são sinalizadas (o app não deixa começar uma partida entre duas equipes de nome igual). Equipe sem nome ou sem jogador não aparece na hora de escolher quem joga.
+4. Tocar no nome de um jogador abre o menu: **🔀 Mover pra outra equipe**, **✏️ Renomear** ou **✕ Remover** (quem já jogou/marcou continua nas estatísticas; quem nunca apareceu em nada some de vez).
+5. Equipe que **já jogou (ou está jogando)** não pode ser removida — senão o histórico ficaria incompleto. Equipe vazia que ainda não jogou sai direto pelo "–".
+
+**Tela de Partida nesse modo:** não tem fila nem "quem ganha fica". Você escolhe as **duas equipes que vão jogar** (dois seletores — qualquer equipe contra qualquer equipe, sem depender do resultado da partida anterior) e, logo abaixo, a **escalação**: todo o elenco já vem marcado, e você toca no nome de quem não veio pra tirar. Quem estava de fora da escalação e entra depois **é incluído automaticamente** assim que marcar gol ou der assistência. Só quem está na escalação ganha "J" (jogo) nas estatísticas.
+
+Durante a partida o placar mostra o **nome das equipes** (um lado fica com a cor preta e o outro com a verde só pra você diferenciar na tela, não tem relação com colete). O botão de gol lista os jogadores da escalação do time escolhido, e o select "Foi outra pessoa?" cobre o resto do elenco e gol contra. **Fim da partida**: pelo placar, direto — empate é só empate (sem pergunta de quem sobe). Cronômetro, vibração e beep funcionam igual.
+
+Nas Estatísticas, cada jogador aparece com o nome da equipe embaixo, e o histórico mostra as equipes pelo nome.
+
+## Jogadores por time (modo Fila por chegada)
 
 Antes de cadastrar o primeiro jogador, a tela de Fila mostra um seletor de **jogadores por time** (atalhos pra Futsal = 4, Fut7 = 7, Campo = 11, ou qualquer número customizado). Assim dá pra usar o mesmo app numa pelada de campo ou num fut7, não só no futsal de terça.
 
@@ -75,18 +98,26 @@ No modal de gol, depois dos botões rápidos com os jogadores do time escolhido,
 
 O mesmo select aparece no passo de assistência, pelo mesmo motivo.
 
-## Corrigir a última partida (errou um gol, uma assistência, ou o resultado)
+## Editar qualquer partida (errou o gol, a assistência ou o time)
 
-Depois que uma partida termina, o card dela na aba **Estatísticas** (só o mais recente) ganha um botão **✏️ Corrigir esta partida**. Serve pra quando você percebe depois que esqueceu de marcar um gol, errou quem deu assistência, errou o time, ou — o pior caso — a partida terminou empatada, você escolheu quem ficava, e depois descobriu que devia ter sido o outro time (ex.: decidiram nos pênaltis e o time que você marcou como vencedor acabou perdendo).
+Na aba **Estatísticas**, **todas** as partidas do histórico têm um botão **✏️ Editar partida** (não só a última, e nos dois modos). Abre uma tela com cada gol da partida, onde você pode:
 
-Ao tocar em "Corrigir esta partida" (com uma confirmação antes), o app **volta a partida pro estado de antes de ter terminado** — com o placar e os gols exatamente como estavam — e te leva de volta pra aba Partida, em modo de correção. De lá, você usa as mesmas ferramentas de sempre:
-- **⚽ Gol** pra adicionar o que faltou.
-- A **lixeira em cada gol do log** (não só o último) pra apagar o que foi marcado errado.
-- **Salvar correção e concluir** quando o placar já estiver certo — o app decide o resultado sozinho de novo (ou pergunta quem sobe, se ainda continuar empatado).
+- Trocar **pra qual equipe é o gol**, **quem marcou** e **quem deu a assistência** (os selects separam o time que recebe o gol, o adversário — escolher alguém dele vira **gol contra** automaticamente — e os outros jogadores, como goleiros fixos).
+- **Remover** um gol, ou **＋ Adicionar gol** que faltou.
+- No modo Times fechados, também **ajustar quem jogou** (toque nos nomes; quem tem gol/assistência na partida não sai da lista até você tirar o gol).
 
-Isso substitui ter que sair trocando todo mundo na mão: as estatísticas dos jogadores e a fila de times são refeitas do zero a partir do placar corrigido, sem duplicar nem acumular o que tinha sido contado errado antes.
+O placar da partida acompanha os gols. Ao tocar em **Salvar correção**, o app **desfaz as estatísticas daquela partida e refaz com os dados novos** — gols, assistências, gols contra, jogos e vitórias de todo mundo continuam batendo, sem duplicar nem acumular o que estava errado. O nome dos jogadores no histórico acompanha as renomeações.
 
-**Só dá pra corrigir a partida mais recente**, e só enquanto nenhuma partida nova começou depois dela — porque a formação dos times seguintes já depende do resultado daquela. Se uma partida nova já começou, a anterior não aparece mais como corrigível.
+**Se o resultado mudar** (ex.: era 2×1 e virou empate, ou o contrário), o histórico e as estatísticas já são corrigidos. Já a **fila** (só no modo Fila por chegada) depende do que aconteceu depois:
+- Se for a **última partida** e nenhuma partida nova começou, o app pergunta **"Refazer a fila?"** — se sim, a partida é reaberta e concluída de novo com o resultado novo (vitória: a fila se refaz sozinha; empate: você escolhe quem fica).
+- Se já teve partida depois, a **fila não muda** (ela já andou), e o app avisa isso.
+- No modo Times fechados não existe fila, então nada mais precisa ser refeito.
+
+### Reabrir e refazer a fila da última partida
+
+Só na **última** partida do modo Fila por chegada, existe ainda o botão **↩️ Reabrir e refazer a fila** (com confirmação): volta a partida pro estado de antes de terminar, na aba Partida, com ⚽ Gol, a lixeira de cada gol e **Salvar correção e concluir**. É útil quando o erro foi na **decisão** (ex.: empate, você escolheu quem ficava e descobriu depois que devia ter sido o outro time — pênaltis). Só aparece enquanto nenhuma partida nova começou. Se você já tinha editado partidas antigas, essas correções são mantidas.
+
+> Partidas gravadas por versões bem antigas do app (só com nomes) são convertidas sozinhas quando dá pra identificar cada jogador pelo nome; se não der, ficam só pra leitura.
 
 ## Aviso de fim de partida (vibração + som)
 
@@ -125,6 +156,7 @@ Ele pergunta umas coisas (nome do projeto, etc.) e te devolve a URL pública.
 
 ## Pequenas escolhas que fiz (me avisa se quiser diferente)
 
-- **Duração da partida**: ajustável em botões de − / + (padrão 10 min, de 3 a 60).
+- **Duração da partida**: ajustável em botões de − / + (padrão 10 min, de 3 a 90).
 - Tocar em qualquer nome abre o menu de editar (trocar de lugar / renomear / remover) — não tem mais o ✕ separado.
 - Cada gol no log da partida tem uma lixeira própria — dá pra apagar qualquer um deles (não só o último), sem precisar desfazer em cascata.
+- O total de **Gols** nas Estatísticas é a soma dos placares das partidas (inclui gols contra, que não entram no "G" de ninguém).
